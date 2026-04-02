@@ -389,56 +389,88 @@ function loop(){
   // At the bottom: road fills ~85% of canvas width
   // At the horizon: road converges to a point
 
-  const ROAD_H = H - SKY_BOTTOM; // height of road area in pixels
-  const ROAD_W_BASE = W * 0.82;  // road width at bottom of screen
+  const ROAD_H = H - SKY_BOTTOM;
+  const ROAD_W_BASE = W * 0.82;
+  const DEPTH_SCALE = SEG_LEN * 12;
 
-  // Curve: accumulate as we sweep from bottom (near) to top (far)
-  // We draw bottom→top so we add curve incrementally
-  let curveAccum = 0;
-  let lastSeg = -1;
-  let rumbleOn = false;
+  // ── Pre-compute curve x-offsets per scanline ──────────────────
+  // Walk forward from camera through segments, accumulating lateral
+  // curve offset. Store result per screen-Y so the draw loop is clean.
+  // This is the correct OutRun method: one forward pass, then draw.
+  const NUM_LINES = H - SKY_BOTTOM;
+  const roadCXArr = new Float32Array(H); // roadCX for each y
+  const rumbleArr = new Uint8Array(H);   // rumble flag per y
+  const worldDistArr = new Float32Array(H); // worldDist per y
+
+  {
+    let cx = 0;          // accumulated lateral curve offset (world units)
+    let lastSI = -1;
+    let rumble = false;
+
+    // We need to map each scanline y→segment, compute curve.
+    // Walk from y=SKY_BOTTOM (far) to y=H-1 (near) — i.e. far to near —
+    // accumulating curve as we go so near scanlines carry all the bends behind them.
+    // Then flip: near scanlines get the most accumulated curve, far ones get less.
+    // Simplest correct approach: build array top→bottom (far→near), accumulate.
+
+    let prevSI = -1;
+    let curveSumArr = new Float32Array(H);
+    let cSum = 0;
+
+    for(let y = SKY_BOTTOM; y < H; y++){
+      const t = (y - SKY_BOTTOM) / ROAD_H;
+      if(t <= 0){ curveSumArr[y]=0; continue; }
+      const worldDist = DEPTH_SCALE * (1/t - 1);
+      const worldZ = camZ + worldDist;
+      const si = ((Math.floor(worldZ / SEG_LEN)) % TRACK.length + TRACK.length) % TRACK.length;
+      worldDistArr[y] = worldDist;
+
+      if(si !== prevSI){
+        // New segment — accumulate its curve (weighted by how "far" we are)
+        // The further away, the less it contributes to near-camera bending
+        cSum += TRACK[si].curve * 120;
+        prevSI = si;
+        rumble = !rumble;
+      }
+      curveSumArr[y] = cSum;
+      rumbleArr[y] = rumble ? 1 : 0;
+    }
+
+    // Now build roadCX: near scanlines (large t, large y) should have
+    // curve offset = total accumulated curve minus what's in front of them.
+    // The curve offset at screen position y = (totalCurve - curveSumArr[y]) * t
+    // multiplied by lineW scaling so it appears in screen space.
+    const totalCurve = curveSumArr[H-1];
+
+    for(let y = SKY_BOTTOM; y < H; y++){
+      const t = (y - SKY_BOTTOM) / ROAD_H;
+      if(t <= 0){ roadCXArr[y] = W*0.5; continue; }
+      const lineW = ROAD_W_BASE * t;
+      // Curve ahead of camera pushes road left/right on screen
+      // Near lines (t≈1) feel the full offset; far lines (t≈0) barely move
+      const curveOffset = (totalCurve - curveSumArr[y]) * t * 0.012;
+      roadCXArr[y] = W*0.5 - playerX*(lineW*0.35) + curveOffset;
+    }
+  }
 
   // We'll record where coins/hazards appear on screen for collision
   const objScreenPos=[];
 
   for(let y=H-1;y>=SKY_BOTTOM;y--){
-    // t: 0 at horizon, 1 at bottom of screen
     const t=(y-SKY_BOTTOM)/ROAD_H;
     if(t<=0.001)continue;
 
-    // Perspective scale
     const lineW=ROAD_W_BASE*t;
-
-    // Map this scanline to a world-Z distance from camera
-    // Using a proper perspective projection: depth = scale / t
-    // where scale controls how far the road extends
-    const DEPTH_SCALE = SEG_LEN * 12;
-    const worldDist = DEPTH_SCALE * (1/t - 1); // 0 at bottom, large at horizon
-    const worldZ = camZ + worldDist;
-
-    // Which segment
-    const si = Math.floor(worldZ / SEG_LEN) % TRACK.length;
-    const thisSeg = TRACK[(si + TRACK.length) % TRACK.length];
-
-    // Accumulate curve offset — add segment curve weighted by depth step
-    // We step upward (increasing depth), so accumulate going up
-    if(si !== lastSeg){
-      curveAccum += thisSeg.curve * 18;
-      lastSeg = si;
-      rumbleOn = !rumbleOn;
-    }
-
-    // Road center X — player offset + curve push
-    const roadCX = W*0.5 - playerX*(lineW*0.35) + curveAccum * t * 0.8;
-
-    const isRumble = rumbleOn;
+    const roadCX = roadCXArr[y];
+    const isRumble = rumbleArr[y]===1;
+    const worldDist = worldDistArr[y];
 
     // Colors
     const grassCol='#0d0a04';
     const rumbleCol=isRumble?'#c8281e':'#f0ede8';
     const roadCol  =isRumble?'#232120':'#2a2826';
 
-    // Draw grass edges
+    // Grass
     ctx.fillStyle=grassCol;
     ctx.fillRect(0,y,roadCX-lineW/2-lineW*0.05,1);
     ctx.fillRect(roadCX+lineW/2+lineW*0.05,y,W,1);
@@ -448,35 +480,29 @@ function loop(){
     ctx.fillRect(roadCX-lineW/2-lineW*0.05,y,lineW*0.05,1);
     ctx.fillRect(roadCX+lineW/2,           y,lineW*0.05,1);
 
-    // Road
+    // Road surface
     ctx.fillStyle=roadCol;
     ctx.fillRect(roadCX-lineW/2,y,lineW,1);
 
-    // Lane markings — two dashed lines at 1/3 positions
+    // Lane dashes
     if(isRumble){
       ctx.fillStyle='rgba(200,200,100,0.5)';
       const lw=Math.max(1,lineW*0.008);
       ctx.fillRect(roadCX-lineW*0.165,y,lw,1);
       ctx.fillRect(roadCX+lineW*0.160,y,lw,1);
-    }
-
-    // Center dashes
-    if(isRumble){
       ctx.fillStyle='rgba(180,180,180,0.25)';
       ctx.fillRect(roadCX-lineW*0.005,y,lineW*0.01,1);
     }
 
-    // ── Coins & hazards at this depth ──
-    // Match using worldDist from camera — bucket into 20-unit slots
-    const BUCKET = 20;
-    const distBucket = Math.round(worldDist / BUCKET);
+    // ── Coins & hazards ──
+    const BUCKET=20;
+    const distBucket=Math.round(worldDist/BUCKET);
 
     for(let ci=0;ci<coins.length;ci++){
       const c=coins[ci];if(c.done)continue;
-      const objDist = c.z - camZ;
-      if(objDist < 0){c.done=true;continue;} // passed behind camera
-      const objBucket = Math.round(objDist / BUCKET);
-      if(objBucket===distBucket){
+      const objDist=c.z-camZ;
+      if(objDist<0){c.done=true;continue;}
+      if(Math.round(objDist/BUCKET)===distBucket){
         const cx=roadCX+c.lx*lineW*0.34;
         const r=Math.max(3,lineW*(c.big?0.042:0.026));
         ctx.fillStyle=c.big?'#f5c842':'#7ec850';
@@ -494,10 +520,9 @@ function loop(){
 
     for(let hi=0;hi<hazards.length;hi++){
       const h=hazards[hi];if(h.done)continue;
-      const objDist = h.z - camZ;
-      if(objDist < 0){h.done=true;continue;}
-      const objBucket = Math.round(objDist / BUCKET);
-      if(objBucket===distBucket){
+      const objDist=h.z-camZ;
+      if(objDist<0){h.done=true;continue;}
+      if(Math.round(objDist/BUCKET)===distBucket){
         const hx=roadCX+h.lx*lineW*0.34;
         const sz=Math.max(5,lineW*0.055);
         ctx.fillStyle='#3a6898';
