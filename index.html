@@ -2,1235 +2,865 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Century Drive — Muscle & Mayhem</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Century Drive</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0908;font-family:'Barlow',sans-serif;color:#f0ede8;user-select:none;-webkit-user-select:none}
+#app{width:100%;height:100vh;position:relative;display:flex;align-items:center;justify-content:center}
+.screen{display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column}
+.screen.active{display:flex}
 
-  :root {
-    --asphalt: #1a1a1a;
-    --asphalt-mid: #2a2928;
-    --asphalt-light: #3d3b38;
-    --stripe: #f5c842;
-    --stripe-dim: #8a6e1a;
-    --red: #e8362a;
-    --red-dark: #9e1f16;
-    --green: #4caf50;
-    --green-dark: #2e7d32;
-    --chrome: #c8c8c8;
-    --chrome-dim: #888;
-    --cash: #7ec850;
-    --hazard: #e8362a;
-    --sky: #d4956a;
-    --road-w: 520px;
-  }
+/* TITLE */
+#s-title{background:#0a0908;gap:0}
+.t-era{font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.28em;color:#f5c842;text-transform:uppercase;margin-bottom:10px}
+.t-main{font-family:'Bebas Neue',sans-serif;font-size:clamp(72px,12vw,140px);line-height:.88;text-align:center;color:#f0ede8;letter-spacing:.02em}
+.t-sub{font-family:'Bebas Neue',sans-serif;font-size:clamp(22px,4vw,42px);color:#f5c842;letter-spacing:.12em;margin-top:6px}
+.t-rule{width:72px;height:3px;background:#e8362a;margin:26px auto}
+.t-copy{font-size:14px;color:#666;text-align:center;max-width:380px;line-height:1.65;margin-bottom:36px}
+.btn-primary{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.1em;color:#0a0908;background:#f5c842;border:none;padding:13px 52px;cursor:pointer;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);transition:background .15s,transform .1s}
+.btn-primary:hover{background:#ffd84a;transform:scale(1.04)}
+.btn-primary:active{transform:scale(.97)}
+.t-hint{margin-top:24px;font-size:12px;color:#444;text-align:center;line-height:2}
+.t-stamp{position:absolute;bottom:20px;font-size:10px;letter-spacing:.18em;color:#2a2826;text-transform:uppercase}
 
-  html, body {
-    height: 100%;
-    background: #0f0e0d;
-    color: #f0ede8;
-    font-family: 'Barlow', sans-serif;
-    overflow: hidden;
-    user-select: none;
-  }
+/* GAME */
+#s-game{background:#0a0908;flex-direction:column;padding:0}
+#hud{width:100%;max-width:700px;display:flex;justify-content:space-between;align-items:flex-end;padding:10px 12px 6px;flex-shrink:0}
+.hud-cell{display:flex;flex-direction:column;gap:2px}
+.hud-lbl{font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:.2em;color:#3d3b38;text-transform:uppercase}
+.hud-val{font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;color:#f5c842}
+.hud-val.cash{color:#7ec850}
+.hud-val.danger{color:#e8362a}
+.cond-wrap{display:flex;flex-direction:column;align-items:center;gap:3px}
+.cond-track{width:110px;height:7px;background:#1e1c19;border:1px solid #2a2826}
+.cond-fill{height:100%;transition:width .3s,background .3s}
+#gameCanvas{display:block;width:100%;max-width:700px;flex:1;cursor:none}
 
-  #app {
-    width: 100%;
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-  }
+/* Overlays */
+#dmg-flash{position:absolute;inset:0;pointer-events:none;opacity:0;background:rgba(232,54,42,.4);z-index:40}
+#dmg-flash.flash{animation:dmgF .35s ease-out forwards}
+@keyframes dmgF{0%{opacity:1}100%{opacity:0}}
+#cash-pop{position:absolute;font-family:'Bebas Neue',sans-serif;font-size:30px;color:#7ec850;pointer-events:none;opacity:0;z-index:50;top:38%;left:50%;transform:translateX(-50%)}
+#cash-pop.pop{animation:cashP .75s ease-out forwards}
+@keyframes cashP{0%{opacity:1;transform:translateX(-50%) translateY(0)}100%{opacity:0;transform:translateX(-50%) translateY(-48px)}}
 
-  /* ── SCREENS ── */
-  .screen {
-    display: none;
-    width: 100%;
-    height: 100%;
-    position: absolute;
-    top: 0; left: 0;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-  }
-  .screen.active { display: flex; }
+/* EVENT MODAL */
+#event-modal{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:80;background:rgba(10,9,8,.7)}
+#event-modal.show{display:flex}
+.event-box{background:#141210;border:1px solid #f5c842;padding:28px 32px;max-width:340px;width:90%;text-align:center}
+.ev-title{font-family:'Bebas Neue',sans-serif;font-size:32px;color:#f5c842;letter-spacing:.06em;margin-bottom:8px}
+.ev-body{font-size:13px;color:#888;line-height:1.6;margin-bottom:22px}
+.ev-btns{display:flex;gap:10px;justify-content:center}
+.ev-btn{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.08em;padding:10px 28px;border:1px solid #3d3b38;background:transparent;color:#f0ede8;cursor:pointer;transition:border-color .15s}
+.ev-btn:hover{border-color:#888}
+.ev-btn.go{background:#f5c842;color:#0a0908;border-color:#f5c842;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%)}
+.ev-btn.go:hover{background:#ffd84a}
 
-  /* ── TITLE SCREEN ── */
-  #screen-title {
-    background: #0f0e0d;
-    gap: 0;
-  }
-  .title-era {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 13px;
-    letter-spacing: 0.25em;
-    color: var(--stripe);
-    text-transform: uppercase;
-    margin-bottom: 12px;
-  }
-  .title-main {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(64px, 10vw, 120px);
-    line-height: 0.9;
-    color: #f0ede8;
-    text-align: center;
-    letter-spacing: 0.02em;
-  }
-  .title-sub {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(28px, 4vw, 48px);
-    color: var(--stripe);
-    letter-spacing: 0.08em;
-    margin-top: 4px;
-  }
-  .title-divider {
-    width: 80px;
-    height: 3px;
-    background: var(--red);
-    margin: 28px auto;
-  }
-  .title-flavor {
-    font-size: 15px;
-    color: #888;
-    text-align: center;
-    max-width: 400px;
-    line-height: 1.6;
-    margin-bottom: 40px;
-  }
-  .btn-start {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 22px;
-    letter-spacing: 0.1em;
-    color: #0f0e0d;
-    background: var(--stripe);
-    border: none;
-    padding: 14px 56px;
-    cursor: pointer;
-    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
-    transition: background 0.15s, transform 0.1s;
-  }
-  .btn-start:hover { background: #ffd84a; transform: scale(1.04); }
-  .btn-start:active { transform: scale(0.97); }
-  .title-controls {
-    margin-top: 28px;
-    font-size: 13px;
-    color: #555;
-    text-align: center;
-    line-height: 2;
-  }
-  .title-badge {
-    position: absolute;
-    bottom: 24px;
-    font-size: 11px;
-    letter-spacing: 0.15em;
-    color: #333;
-    text-transform: uppercase;
-  }
+/* UPGRADE */
+#s-upgrade{background:#0a0908;flex-direction:column;padding:0 16px;overflow-y:auto}
+.upg-head{text-align:center;padding:28px 0 16px;flex-shrink:0}
+.upg-title{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:.04em;color:#f0ede8}
+.upg-budget{font-family:'Barlow Condensed',sans-serif;font-size:15px;letter-spacing:.1em;color:#7ec850;margin-top:4px}
+.upg-cond{font-size:12px;color:#555;margin-top:2px}
+.upg-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:500px;width:100%;margin:0 auto 14px}
+.upg-card{border:1px solid #222;background:#141210;padding:14px;cursor:pointer;transition:border-color .15s,background .15s;position:relative}
+.upg-card:hover:not(.maxed):not(.broke){border-color:#f5c842;background:#1c1a17}
+.upg-card.maxed,.upg-card.broke{opacity:.45;cursor:default}
+.upg-name{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.05em;color:#f0ede8;text-transform:uppercase;margin-bottom:3px}
+.upg-fx{font-size:12px;color:#666;line-height:1.4;margin-bottom:9px}
+.upg-cost{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#f5c842}
+.upg-pips{display:flex;gap:4px;margin-top:6px}
+.pip{width:16px;height:4px;background:#222}.pip.on{background:#f5c842}
+.upg-maxbadge{position:absolute;top:8px;right:8px;font-size:10px;letter-spacing:.1em;color:#f5c842;font-family:'Barlow Condensed',sans-serif}
+.upg-actions{display:flex;gap:10px;max-width:500px;width:100%;margin:0 auto;padding-bottom:20px;flex-shrink:0}
+.btn-sec{flex:1;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.08em;color:#f0ede8;background:transparent;border:1px solid #2a2826;padding:13px;cursor:pointer;transition:border-color .15s}
+.btn-sec:hover{border-color:#555}
+.btn-pri{flex:1;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.08em;color:#0a0908;background:#f5c842;border:none;padding:13px;cursor:pointer;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);transition:background .15s}
+.btn-pri:hover{background:#ffd84a}
 
-  /* ── GAME SCREEN ── */
-  #screen-game {
-    flex-direction: column;
-    background: #0f0e0d;
-    gap: 0;
-  }
+/* AUCTION */
+#s-auction{background:#0a0908;flex-direction:column;padding:0 16px;overflow-y:auto}
+.auc-head{text-align:center;padding:28px 0 18px;flex-shrink:0}
+.auc-eye{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.28em;color:#f5c842;text-transform:uppercase;margin-bottom:6px}
+.auc-title{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:.04em;color:#f0ede8}
+.auc-sub{font-size:14px;color:#555;margin-top:2px}
+.buyers{display:flex;gap:10px;max-width:520px;width:100%;margin:0 auto 18px;flex-wrap:wrap}
+.buyer{flex:1;min-width:130px;border:1px solid #222;background:#141210;padding:14px 12px;cursor:pointer;transition:border-color .2s,background .2s;text-align:center}
+.buyer:hover,.buyer.sel{border-color:#f5c842;background:#1c1a17}
+.buyer-name{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.05em;color:#f0ede8;text-transform:uppercase;margin-bottom:5px}
+.buyer-desc{font-size:11px;color:#555;line-height:1.4;margin-bottom:9px}
+.buyer-offer{font-family:'Bebas Neue',sans-serif;font-size:24px;color:#7ec850}
+.buyer-risk{font-size:10px;color:#444;margin-top:3px}
+.breakdown{max-width:520px;width:100%;margin:0 auto 16px;border:1px solid #1e1c19;background:#141210;padding:14px}
+.brow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #1a1816;font-size:13px}
+.brow:last-child{border-bottom:none;font-weight:600}
+.blbl{color:#666}
+.bval{color:#f0ede8;font-family:'Barlow Condensed',sans-serif;font-weight:600}
+.bval.p{color:#7ec850}.bval.n{color:#e8362a}
+.bval.tot{font-family:'Bebas Neue',sans-serif;font-size:26px;color:#f5c842}
+.btn-sell{max-width:520px;width:100%;margin:0 auto;display:block;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.1em;color:#0a0908;background:#f5c842;border:none;padding:15px;cursor:pointer;clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);transition:background .15s;margin-bottom:20px}
+.btn-sell:hover{background:#ffd84a}
 
-  /* HUD */
-  #hud {
-    width: 100%;
-    max-width: var(--road-w);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 8px 8px;
-    flex-shrink: 0;
-  }
-  .hud-block { display: flex; flex-direction: column; gap: 2px; }
-  .hud-label {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    color: #555;
-    text-transform: uppercase;
-  }
-  .hud-value {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 26px;
-    line-height: 1;
-    color: var(--stripe);
-  }
-  .hud-value.green { color: var(--cash); }
-  .hud-value.red { color: var(--red); }
+/* RESULT */
+#s-result{background:#0a0908;flex-direction:column;text-align:center;padding:0 20px;gap:0}
+.res-eye{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.3em;color:#f5c842;text-transform:uppercase;margin-bottom:10px}
+.res-head{font-family:'Bebas Neue',sans-serif;font-size:clamp(48px,9vw,100px);color:#f0ede8;line-height:.92;margin-bottom:6px}
+.res-amt{font-family:'Bebas Neue',sans-serif;font-size:clamp(36px,6vw,72px);color:#f5c842;margin-bottom:24px}
+.res-stats{display:flex;gap:28px;justify-content:center;margin-bottom:36px;flex-wrap:wrap}
+.rs{display:flex;flex-direction:column;gap:3px}
+.rs-lbl{font-size:10px;letter-spacing:.18em;color:#444;text-transform:uppercase}
+.rs-val{font-family:'Bebas Neue',sans-serif;font-size:30px;color:#f0ede8}
+.res-acts{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn-again{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.08em;color:#0a0908;background:#f5c842;border:none;padding:13px 44px;cursor:pointer;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);transition:background .15s}
+.btn-again:hover{background:#ffd84a}
+.btn-menu-r{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.08em;color:#f0ede8;background:transparent;border:1px solid #2a2826;padding:13px 28px;cursor:pointer;transition:border-color .15s}
+.btn-menu-r:hover{border-color:#666}
 
-  /* Condition bar */
-  .condition-bar-wrap { display: flex; flex-direction: column; gap: 4px; align-items: center; }
-  .condition-bar-track {
-    width: 120px;
-    height: 8px;
-    background: #2a2928;
-    border: 1px solid #3d3b38;
-    position: relative;
-    overflow: hidden;
-  }
-  .condition-bar-fill {
-    height: 100%;
-    background: var(--green);
-    transition: width 0.3s, background 0.3s;
-  }
-
-  /* Canvas */
-  #gameCanvas {
-    display: block;
-    max-width: var(--road-w);
-    width: 100%;
-    flex: 1;
-    max-height: calc(100vh - 120px);
-    image-rendering: pixelated;
-  }
-
-  /* ── UPGRADE SCREEN ── */
-  #screen-upgrade {
-    background: #0f0e0d;
-    flex-direction: column;
-    gap: 0;
-    padding: 0 16px;
-    overflow-y: auto;
-  }
-  .upgrade-header {
-    text-align: center;
-    padding: 32px 0 20px;
-    flex-shrink: 0;
-  }
-  .upgrade-title {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 48px;
-    color: #f0ede8;
-    letter-spacing: 0.05em;
-  }
-  .upgrade-budget {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 16px;
-    color: var(--cash);
-    letter-spacing: 0.1em;
-    margin-top: 4px;
-  }
-  .upgrade-car-state {
-    font-size: 13px;
-    color: #666;
-    margin-top: 2px;
-  }
-  .upgrade-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    width: 100%;
-    max-width: 500px;
-    margin: 0 auto 16px;
-  }
-  .upgrade-card {
-    border: 1px solid #2a2928;
-    background: #1a1918;
-    padding: 14px;
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
-    position: relative;
-  }
-  .upgrade-card:hover:not(.maxed):not(.cant-afford) {
-    border-color: var(--stripe);
-    background: #211f1c;
-  }
-  .upgrade-card.maxed { opacity: 0.4; cursor: default; }
-  .upgrade-card.cant-afford { opacity: 0.5; cursor: default; }
-  .upgrade-name {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    color: #f0ede8;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-  }
-  .upgrade-effect { font-size: 12px; color: #888; line-height: 1.4; margin-bottom: 10px; }
-  .upgrade-cost {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 18px;
-    color: var(--stripe);
-  }
-  .upgrade-level {
-    display: flex;
-    gap: 4px;
-    margin-top: 6px;
-  }
-  .upgrade-pip {
-    width: 16px;
-    height: 4px;
-    background: #2a2928;
-  }
-  .upgrade-pip.filled { background: var(--stripe); }
-  .upgrade-done-badge {
-    position: absolute;
-    top: 8px; right: 8px;
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    color: var(--stripe);
-    font-family: 'Barlow Condensed', sans-serif;
-  }
-  .upgrade-actions {
-    display: flex;
-    gap: 10px;
-    max-width: 500px;
-    width: 100%;
-    margin: 0 auto;
-    padding-bottom: 24px;
-    flex-shrink: 0;
-  }
-  .btn-auction {
-    flex: 1;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 20px;
-    letter-spacing: 0.08em;
-    color: #0f0e0d;
-    background: var(--stripe);
-    border: none;
-    padding: 14px;
-    cursor: pointer;
-    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
-    transition: background 0.15s;
-  }
-  .btn-auction:hover { background: #ffd84a; }
-  .btn-run-again {
-    flex: 1;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 20px;
-    letter-spacing: 0.08em;
-    color: #f0ede8;
-    background: transparent;
-    border: 1px solid #3d3b38;
-    padding: 14px;
-    cursor: pointer;
-    transition: border-color 0.15s;
-  }
-  .btn-run-again:hover { border-color: #888; }
-
-  /* ── AUCTION SCREEN ── */
-  #screen-auction {
-    background: #0f0e0d;
-    flex-direction: column;
-    padding: 0 20px;
-    gap: 0;
-  }
-  .auction-header {
-    text-align: center;
-    padding: 36px 0 24px;
-  }
-  .auction-eyebrow {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.25em;
-    color: var(--stripe);
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-  .auction-title {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 52px;
-    color: #f0ede8;
-    letter-spacing: 0.04em;
-  }
-  .auction-car-name {
-    font-size: 15px;
-    color: #666;
-    margin-top: 4px;
-  }
-  .buyers-row {
-    display: flex;
-    gap: 12px;
-    max-width: 520px;
-    width: 100%;
-    margin: 0 auto 24px;
-  }
-  .buyer-card {
-    flex: 1;
-    border: 1px solid #2a2928;
-    background: #1a1918;
-    padding: 16px 12px;
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-    text-align: center;
-  }
-  .buyer-card:hover { border-color: var(--stripe); background: #211f1c; }
-  .buyer-card.selected { border-color: var(--stripe); background: #211f1c; }
-  .buyer-name {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    color: #f0ede8;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .buyer-desc { font-size: 12px; color: #666; line-height: 1.4; margin-bottom: 10px; }
-  .buyer-offer {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 22px;
-    color: var(--cash);
-  }
-  .buyer-risk {
-    font-size: 11px;
-    color: #555;
-    margin-top: 4px;
-  }
-  .sell-breakdown {
-    max-width: 520px;
-    width: 100%;
-    margin: 0 auto 20px;
-    border: 1px solid #2a2928;
-    background: #1a1918;
-    padding: 16px;
-  }
-  .breakdown-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 0;
-    border-bottom: 1px solid #222;
-    font-size: 14px;
-  }
-  .breakdown-row:last-child { border-bottom: none; font-weight: 600; }
-  .breakdown-label { color: #888; }
-  .breakdown-val { color: #f0ede8; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; }
-  .breakdown-val.pos { color: var(--cash); }
-  .breakdown-val.neg { color: var(--red); }
-  .breakdown-val.total {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 24px;
-    color: var(--stripe);
-  }
-  .btn-confirm-sell {
-    max-width: 520px;
-    width: 100%;
-    margin: 0 auto;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 22px;
-    letter-spacing: 0.1em;
-    color: #0f0e0d;
-    background: var(--stripe);
-    border: none;
-    padding: 16px;
-    cursor: pointer;
-    clip-path: polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%);
-    transition: background 0.15s;
-    display: block;
-  }
-  .btn-confirm-sell:hover { background: #ffd84a; }
-
-  /* ── RESULT SCREEN ── */
-  #screen-result {
-    background: #0f0e0d;
-    flex-direction: column;
-    text-align: center;
-    padding: 0 20px;
-    gap: 0;
-  }
-  .result-eyebrow {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.3em;
-    color: var(--stripe);
-    text-transform: uppercase;
-    margin-bottom: 12px;
-  }
-  .result-headline {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(48px, 8vw, 96px);
-    color: #f0ede8;
-    line-height: 0.95;
-    margin-bottom: 8px;
-  }
-  .result-amount {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(36px, 6vw, 72px);
-    color: var(--stripe);
-    margin-bottom: 24px;
-  }
-  .result-stats {
-    display: flex;
-    gap: 24px;
-    justify-content: center;
-    margin-bottom: 36px;
-    flex-wrap: wrap;
-  }
-  .result-stat { display: flex; flex-direction: column; gap: 4px; }
-  .result-stat-label { font-size: 11px; letter-spacing: 0.15em; color: #555; text-transform: uppercase; }
-  .result-stat-val {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 28px;
-    color: #f0ede8;
-  }
-  .result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-  .btn-next {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 20px;
-    letter-spacing: 0.08em;
-    color: #0f0e0d;
-    background: var(--stripe);
-    border: none;
-    padding: 14px 48px;
-    cursor: pointer;
-    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
-    transition: background 0.15s;
-  }
-  .btn-next:hover { background: #ffd84a; }
-  .btn-menu {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 20px;
-    letter-spacing: 0.08em;
-    color: #f0ede8;
-    background: transparent;
-    border: 1px solid #3d3b38;
-    padding: 14px 32px;
-    cursor: pointer;
-    transition: border-color 0.15s;
-  }
-  .btn-menu:hover { border-color: #888; }
-
-  /* Event toast */
-  #event-toast {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: #1a1918;
-    border: 1px solid var(--stripe);
-    padding: 20px 28px;
-    text-align: center;
-    max-width: 300px;
-    z-index: 100;
-    display: none;
-  }
-  #event-toast.show { display: block; animation: toastIn 0.2s ease; }
-  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -48%); } to { opacity: 1; transform: translate(-50%, -50%); } }
-  .toast-title {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 24px;
-    color: var(--stripe);
-    letter-spacing: 0.05em;
-    margin-bottom: 6px;
-  }
-  .toast-body { font-size: 13px; color: #888; line-height: 1.5; margin-bottom: 16px; }
-  .toast-btns { display: flex; gap: 8px; justify-content: center; }
-  .toast-btn {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    padding: 8px 20px;
-    border: 1px solid #3d3b38;
-    background: transparent;
-    color: #f0ede8;
-    cursor: pointer;
-    text-transform: uppercase;
-    transition: border-color 0.15s;
-  }
-  .toast-btn:hover { border-color: var(--stripe); }
-  .toast-btn.primary { background: var(--stripe); color: #0f0e0d; border-color: var(--stripe); }
-  .toast-btn.primary:hover { background: #ffd84a; }
-
-  /* Damage flash */
-  #damage-flash {
-    position: absolute;
-    inset: 0;
-    background: rgba(232,54,42,0.35);
-    pointer-events: none;
-    opacity: 0;
-    z-index: 50;
-  }
-  #damage-flash.flash { animation: dmgFlash 0.35s ease-out forwards; }
-  @keyframes dmgFlash { 0% { opacity: 1; } 100% { opacity: 0; } }
-
-  /* Cash collect flash */
-  #cash-pop {
-    position: absolute;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 28px;
-    color: var(--cash);
-    pointer-events: none;
-    opacity: 0;
-    z-index: 60;
-    top: 40%;
-    left: 50%;
-    transform: translateX(-50%);
-  }
-  #cash-pop.pop { animation: cashPop 0.7s ease-out forwards; }
-  @keyframes cashPop {
-    0% { opacity: 1; transform: translateX(-50%) translateY(0); }
-    100% { opacity: 0; transform: translateX(-50%) translateY(-40px); }
-  }
-
-  @media (max-width: 600px) {
-    .upgrade-grid { grid-template-columns: 1fr; }
-    .buyers-row { flex-direction: column; }
-  }
+@media(max-width:520px){
+  .upg-grid{grid-template-columns:1fr}
+  .buyers{flex-direction:column}
+}
 </style>
 </head>
 <body>
 <div id="app">
 
-  <!-- TITLE -->
-  <div id="screen-title" class="screen active">
-    <div class="title-era">Era 03 — 1968</div>
-    <div class="title-main">CENTURY<br>DRIVE</div>
-    <div class="title-sub">Muscle &amp; Mayhem</div>
-    <div class="title-divider"></div>
-    <div class="title-flavor">Buy a Charger. Race it hard. Upgrade what matters. Sell high. The road doesn't care about your paint job — but the buyer does.</div>
-    <button class="btn-start" onclick="startGame()">Fire It Up</button>
-    <div class="title-controls">
-      Arrow keys or A/D &nbsp;·&nbsp; Tap left/right on mobile
-    </div>
-    <div class="title-badge">A 100-Year Celebration</div>
-  </div>
-
-  <!-- GAME -->
-  <div id="screen-game" class="screen">
-    <div id="hud">
-      <div class="hud-block">
-        <div class="hud-label">Cash</div>
-        <div class="hud-value green" id="hud-cash">$0</div>
-      </div>
-      <div class="hud-block condition-bar-wrap">
-        <div class="hud-label">Body Condition</div>
-        <div class="condition-bar-track">
-          <div class="condition-bar-fill" id="condition-bar"></div>
-        </div>
-        <div style="font-size:11px;color:#555;text-align:center" id="condition-pct">100%</div>
-      </div>
-      <div class="hud-block" style="text-align:right">
-        <div class="hud-label">Distance</div>
-        <div class="hud-value" id="hud-dist">0m</div>
-      </div>
-    </div>
-    <canvas id="gameCanvas"></canvas>
-    <div id="event-toast">
-      <div class="toast-title" id="toast-title">Pink Slip Race!</div>
-      <div class="toast-body" id="toast-body">A Trans Am pulls up and revs. Double your cash — or lose half. You feeling lucky?</div>
-      <div class="toast-btns">
-        <button class="toast-btn" id="toast-no">Back Off</button>
-        <button class="toast-btn primary" id="toast-yes">Let's Go</button>
-      </div>
-    </div>
-    <div id="damage-flash"></div>
-    <div id="cash-pop"></div>
-  </div>
-
-  <!-- UPGRADE -->
-  <div id="screen-upgrade" class="screen">
-    <div class="upgrade-header">
-      <div class="upgrade-title">The Shop</div>
-      <div class="upgrade-budget" id="upgrade-budget">$0 to spend</div>
-      <div class="upgrade-car-state" id="upgrade-car-state">Condition: 100%</div>
-    </div>
-    <div class="upgrade-grid" id="upgrade-grid"></div>
-    <div class="upgrade-actions">
-      <button class="btn-run-again" onclick="runAgain()">Run Again</button>
-      <button class="btn-auction" onclick="goToAuction()">Take It to Auction</button>
-    </div>
-  </div>
-
-  <!-- AUCTION -->
-  <div id="screen-auction" class="screen">
-    <div class="auction-header">
-      <div class="auction-eyebrow">End of Era</div>
-      <div class="auction-title">The Auction</div>
-      <div class="auction-car-name" id="auction-car-name">1968 Dodge Charger R/T</div>
-    </div>
-    <div class="buyers-row" id="buyers-row"></div>
-    <div class="sell-breakdown" id="sell-breakdown"></div>
-    <button class="btn-confirm-sell" id="btn-confirm-sell" onclick="confirmSell()">Hammer Down — Sell It</button>
-  </div>
-
-  <!-- RESULT -->
-  <div id="screen-result" class="screen">
-    <div class="result-eyebrow">Sold</div>
-    <div class="result-headline" id="result-headline">Clean Deal</div>
-    <div class="result-amount" id="result-amount">$0</div>
-    <div class="result-stats" id="result-stats"></div>
-    <div class="result-actions">
-      <button class="btn-next" onclick="startGame()">Drive Again</button>
-      <button class="btn-menu" onclick="showScreen('screen-title')">Main Menu</button>
-    </div>
-  </div>
-
+<!-- TITLE -->
+<div id="s-title" class="screen active">
+  <div class="t-era">Era 03 · 1968</div>
+  <div class="t-main">CENTURY<br>DRIVE</div>
+  <div class="t-sub">Muscle &amp; Mayhem</div>
+  <div class="t-rule"></div>
+  <div class="t-copy">Buy a Charger. Push it hard. Sell it smart. A 100-year road trip through American automotive history.</div>
+  <button class="btn-primary" onclick="startGame()">Fire It Up</button>
+  <div class="t-hint">Arrow keys or A / D &nbsp;·&nbsp; Swipe on mobile</div>
+  <div class="t-stamp">A 100-Year Celebration</div>
 </div>
 
+<!-- GAME -->
+<div id="s-game" class="screen">
+  <div id="hud">
+    <div class="hud-cell">
+      <div class="hud-lbl">Cash</div>
+      <div class="hud-val cash" id="h-cash">$0</div>
+    </div>
+    <div class="hud-cell cond-wrap">
+      <div class="hud-lbl">Condition</div>
+      <div class="cond-track"><div class="cond-fill" id="cond-fill"></div></div>
+      <div style="font-size:10px;color:#3d3b38;margin-top:1px" id="cond-pct">100%</div>
+    </div>
+    <div class="hud-cell" style="text-align:right">
+      <div class="hud-lbl">Speed</div>
+      <div class="hud-val" id="h-spd">0 mph</div>
+    </div>
+  </div>
+  <canvas id="gameCanvas"></canvas>
+  <div id="dmg-flash"></div>
+  <div id="cash-pop"></div>
+  <div id="event-modal">
+    <div class="event-box">
+      <div class="ev-title" id="ev-title">Event</div>
+      <div class="ev-body" id="ev-body"></div>
+      <div class="ev-btns">
+        <button class="ev-btn" id="ev-no">Pass</button>
+        <button class="ev-btn go" id="ev-yes">Do It</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- UPGRADE -->
+<div id="s-upgrade" class="screen">
+  <div class="upg-head">
+    <div class="upg-title">The Shop</div>
+    <div class="upg-budget" id="upg-budget">$0 to spend</div>
+    <div class="upg-cond" id="upg-cond">Condition: 100%</div>
+  </div>
+  <div class="upg-grid" id="upg-grid"></div>
+  <div class="upg-actions">
+    <button class="btn-sec" onclick="runAgain()">Run Again</button>
+    <button class="btn-pri" onclick="goAuction()">Take It to Auction</button>
+  </div>
+</div>
+
+<!-- AUCTION -->
+<div id="s-auction" class="screen">
+  <div class="auc-head">
+    <div class="auc-eye">End of Era</div>
+    <div class="auc-title">The Auction</div>
+    <div class="auc-sub">1968 Dodge Charger R/T</div>
+  </div>
+  <div class="buyers" id="buyers"></div>
+  <div class="breakdown" id="breakdown"><div style="font-size:13px;color:#444;text-align:center;padding:10px">Select a buyer above</div></div>
+  <button class="btn-sell" onclick="confirmSell()">Hammer Down — Sell It</button>
+</div>
+
+<!-- RESULT -->
+<div id="s-result" class="screen">
+  <div class="res-eye">Sold</div>
+  <div class="res-head" id="res-head">Clean Deal</div>
+  <div class="res-amt" id="res-amt">$0</div>
+  <div class="res-stats" id="res-stats"></div>
+  <div class="res-acts">
+    <button class="btn-again" onclick="startGame()">Drive Again</button>
+    <button class="btn-menu-r" onclick="show('s-title')">Main Menu</button>
+  </div>
+</div>
+
+</div><!-- #app -->
+
 <script>
-// ── STATE ──
-const STATE = {
-  cash: 0,
-  condition: 100,
-  distance: 0,
-  upgrades: { engine: 0, body: 0, interior: 0, tires: 0, provenance: 0 },
-  runsThisEra: 0,
-  selectedBuyer: null,
-  finalSalePrice: 0,
+// ════════════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════════════
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function flashDmg(){const e=document.getElementById('dmg-flash');e.classList.remove('flash');void e.offsetWidth;e.classList.add('flash')}
+function popCash(t){const e=document.getElementById('cash-pop');e.textContent=t;e.classList.remove('pop');void e.offsetWidth;e.classList.add('pop')}
+
+// ════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════
+const G = {
+  cash:0, condition:100, runs:0, selectedBuyer:null, finalPrice:0,
+  upgrades:{engine:0,body:0,interior:0,tires:0,provenance:0}
 };
 
-const UPGRADES_DEF = [
-  { key: 'engine',     name: 'Engine Rebuild',    effect: 'Boosts top speed and hazard recovery',        costs: [400, 600, 800], max: 3 },
-  { key: 'body',       name: 'Body & Paint',       effect: 'Raises auction floor. Hides road damage.',    costs: [300, 500, 700], max: 3 },
-  { key: 'interior',   name: 'Interior Detail',    effect: 'Hidden auction multiplier. Buyers notice.',   costs: [250, 400, 600], max: 3 },
-  { key: 'tires',      name: 'Performance Tires',  effect: 'Better dodge window. Less body damage risk.', costs: [350, 550],      max: 2 },
-  { key: 'provenance', name: 'Provenance Card',    effect: '+15% auction bonus. History adds value.',     costs: [800],           max: 1 },
+const UPGRADES = [
+  {key:'engine',    name:'Engine Rebuild',   fx:'Raises top speed & hazard recovery',        costs:[400,600,800], max:3},
+  {key:'body',      name:'Body & Paint',     fx:'Raises auction floor. Hides road damage.',   costs:[300,500,700], max:3},
+  {key:'interior',  name:'Interior Detail',  fx:'Hidden auction multiplier. Buyers notice.',  costs:[250,400,600], max:3},
+  {key:'tires',     name:'Performance Tires',fx:'Wider dodge window. Reduces body damage.',   costs:[350,550],     max:2},
+  {key:'provenance',name:'Provenance Card',  fx:'+15% auction bonus. Documented history.',    costs:[800],         max:1},
 ];
 
 const BUYERS = [
-  { id: 'collector', name: 'Private Collector', desc: 'Pays premium for clean, documented cars. Hates wear.', riskLabel: 'Low risk · condition-sensitive', multiplier: 1.25, conditionSensitive: true },
-  { id: 'dealer',    name: 'The Dealership',    desc: 'Fair market price. Reliable, no drama.', riskLabel: 'Steady · always buying', multiplier: 1.0, conditionSensitive: false },
-  { id: 'auction',   name: 'Open Auction',      desc: 'Could go either way. Market decides the price.', riskLabel: 'Wild card · roll the dice', multiplier: null, conditionSensitive: false },
+  {id:'collector', name:'Private Collector', desc:'Pays premium for clean, documented cars. Condition-sensitive.',   risk:'Low risk · condition matters',  mult:1.28, condSens:true},
+  {id:'dealer',    name:'The Dealership',    desc:'Fair market. Reliable. Doesn\'t care about your feelings.',       risk:'Steady · always buying',        mult:1.0,  condSens:false},
+  {id:'auction',   name:'Open Auction',      desc:'Market decides. Could go big — or bust.',                         risk:'Wild card · roll the dice',     mult:null, condSens:false},
 ];
 
-function calcBaseValue() {
-  let base = 4200;
-  base += STATE.upgrades.engine * 600;
-  base += STATE.upgrades.body * 800;
-  base += STATE.upgrades.interior * 500;
-  base += STATE.upgrades.tires * 300;
-  const condFraction = STATE.condition / 100;
-  const bodyBonus = STATE.upgrades.body * 0.05;
-  base *= (0.4 + 0.6 * condFraction + bodyBonus);
-  return Math.round(base);
+// ════════════════════════════════════════════════
+//  VALUATION
+// ════════════════════════════════════════════════
+function baseValue(){
+  let b = 4400;
+  b += G.upgrades.engine * 650;
+  b += G.upgrades.body * 850;
+  b += G.upgrades.interior * 520;
+  b += G.upgrades.tires * 320;
+  const cf = G.condition / 100;
+  const bodyShield = G.upgrades.body * 0.05;
+  b *= (0.38 + 0.62 * cf + bodyShield);
+  return Math.round(b);
 }
-
-function calcSalePrice(buyerId) {
-  const base = calcBaseValue();
-  let price = base;
-  const buyer = BUYERS.find(b => b.id === buyerId);
-  if (buyer.multiplier !== null) {
-    if (buyer.conditionSensitive) {
-      const condBonus = (STATE.condition / 100) * 0.15;
-      price *= buyer.multiplier + condBonus - 0.15;
-    } else {
-      price *= buyer.multiplier;
-    }
+function salePrice(bid){
+  const base = baseValue();
+  let p = base;
+  const b = BUYERS.find(x=>x.id===bid);
+  if(b.mult !== null){
+    if(b.condSens){ p *= b.mult + (G.condition/100)*0.12 - 0.12; }
+    else { p *= b.mult; }
   } else {
-    const roll = 0.75 + Math.random() * 0.75;
-    price *= roll;
+    p *= 0.72 + Math.random() * 0.78;
   }
-  if (STATE.upgrades.provenance) price *= 1.15;
-  return Math.round(price);
+  if(G.upgrades.provenance) p *= 1.15;
+  return Math.round(p);
 }
 
-// ── SCREENS ──
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
-
-// ── TITLE / INIT ──
-function startGame() {
-  STATE.cash = 0;
-  STATE.condition = 100;
-  STATE.distance = 0;
-  STATE.runsThisEra = 0;
-  STATE.upgrades = { engine: 0, body: 0, interior: 0, tires: 0, provenance: 0 };
-  showScreen('screen-game');
-  initRun();
-}
-
-function runAgain() {
-  STATE.condition = Math.min(100, STATE.condition + 5);
-  showScreen('screen-game');
-  initRun();
-}
-
-// ── GAME ENGINE ──
-let canvas, ctx, animFrame;
-let gameRunning = false;
-let gameOver = false;
-let keys = {};
-
-// Road
-let roadOffset = 0;
-const LANE_L = 0;
-const LANE_R = 1;
-let playerLane = LANE_L;
-let laneTransition = 0;
-let laneDir = 0;
-
-// Objects
-let objects = [];
-let spawnTimer = 0;
-let spawnInterval = 90;
-let eventTimer = 0;
+// ════════════════════════════════════════════════
+//  GAME LOOP — OUTRUN PSEUDO-3D
+// ════════════════════════════════════════════════
+let canvas, ctx, raf;
+let running = false;
 let eventPending = false;
-let speed = 4;
-let frameCount = 0;
+let eventsFired = 0;
+const EVENT_TRIGGERS = [420, 950]; // frames at which events fire
 
-const OBJECTS = {
-  cash:    { type: 'cash',    value: 150, label: '+$150',   color: '#7ec850', w: 28, h: 20 },
-  cashBig: { type: 'cash',    value: 400, label: '+$400',   color: '#f5c842', w: 32, h: 22 },
-  hazard:  { type: 'hazard',  dmg: 12,    label: 'DAMAGE',  color: '#e8362a', w: 36, h: 28 },
-  cone:    { type: 'hazard',  dmg: 6,     label: 'DING!',   color: '#ff8c00', w: 20, h: 28 },
-};
+// Road config
+const SEG_L    = 200;      // length of one road segment
+const SEG_COUNT= 200;      // total segments in track loop
+const CAMERA_H = 150;      // camera height above road
+const CAMERA_D = 0.84;     // camera depth (fov)
+const DRAW_DIST= 120;      // how many segs to draw
 
-function initRun() {
-  canvas = document.getElementById('gameCanvas');
-  ctx = canvas.getContext('2d');
-  resizeCanvas();
+// Per-segment road data
+let segments = [];
 
-  objects = [];
-  spawnTimer = 0;
-  eventTimer = 0 + Math.random() * 180 + 180;
-  eventPending = false;
-  speed = 4 + STATE.upgrades.engine * 0.5;
-  frameCount = 0;
-  gameRunning = true;
-  gameOver = false;
-  playerLane = LANE_L;
-  laneTransition = 0;
-  laneDir = 0;
-  roadOffset = 0;
+// Player
+let playerX  = 0;    // -1..1 across road
+let speed    = 0;
+let maxSpeed = 0;
+let pos      = 0;    // camera position along track (in segment units)
+let frameN   = 0;
 
-  updateHUD();
-  cancelAnimationFrame(animFrame);
-  gameLoop();
-}
-
-function resizeCanvas() {
-  const maxW = Math.min(520, window.innerWidth);
-  const maxH = window.innerHeight - 120;
-  canvas.width = maxW;
-  canvas.height = maxH;
-}
+// Collectibles
+let coins    = [];   // {segIdx, laneX, collected, big}
+let hazards  = [];   // {segIdx, laneX, hit, size}
+let coinSpawnTimer = 0;
+let hazardSpawnTimer = 0;
 
 // Input
-window.addEventListener('keydown', e => {
-  keys[e.key] = true;
-  if ((e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') && playerLane !== LANE_L && laneTransition === 0) switchLane(-1);
-  if ((e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') && playerLane !== LANE_R && laneTransition === 0) switchLane(1);
-});
-window.addEventListener('keyup', e => { keys[e.key] = false; });
+let leftDown = false, rightDown = false;
 
-// Touch
-let touchStartX = 0;
-canvas && canvas.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
-document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
-document.addEventListener('touchend', e => {
-  if (!gameRunning || eventPending) return;
-  const dx = e.changedTouches[0].clientX - touchStartX;
-  if (Math.abs(dx) > 30) {
-    if (dx < 0 && playerLane !== LANE_L && laneTransition === 0) switchLane(-1);
-    if (dx > 0 && playerLane !== LANE_R && laneTransition === 0) switchLane(1);
+function buildTrack(){
+  segments = [];
+  // Alternating curve and straight sections
+  const pattern = [
+    {curve:0,    hill:0,    len:20},
+    {curve:-.004,hill:0,    len:30},
+    {curve:0,    hill:.005, len:25},
+    {curve:.005, hill:0,    len:35},
+    {curve:0,    hill:-.004,len:25},
+    {curve:.003, hill:.003, len:30},
+    {curve:0,    hill:0,    len:35},
+  ];
+  let si = 0;
+  for(let pi=0; pi<pattern.length; pi++){
+    const p = pattern[pi];
+    for(let j=0; j<p.len; j++){
+      const alt = (si%2===0);
+      segments.push({
+        curve: p.curve,
+        hill:  p.hill,
+        color: alt ? {road:'#1e1c19',lane:'#2a2826',stripe:'#888'} : {road:'#1a1816',lane:'#242220',stripe:'#888'},
+        y: 0,   // world Y accumulated
+        x: 0,   // accumulated curve x
+      });
+      si++;
+    }
   }
-}, { passive: true });
-
-function switchLane(dir) {
-  laneDir = dir;
-  laneTransition = 1;
-  playerLane = playerLane === LANE_L ? LANE_R : LANE_L;
+  // Accumulate Y and curve
+  let cy=0, cx=0;
+  for(let i=0;i<segments.length;i++){
+    segments[i].worldY = cy;
+    segments[i].worldX = cx;
+    cy += segments[i].hill;
+    cx += segments[i].curve;
+  }
 }
 
-function getLaneX(lane, cw) {
-  const roadLeft = cw * 0.1;
-  const roadRight = cw * 0.9;
-  const mid = (roadLeft + roadRight) / 2;
-  return lane === LANE_L ? roadLeft + (mid - roadLeft) / 2 : mid + (roadRight - mid) / 2;
+function project(camX, camY, camZ, worldX, worldY, worldZ, cw, ch, camDepth){
+  const scale  = camDepth / (camZ - worldZ);
+  const sx     = Math.round((1 + scale*(worldX - camX)) * cw/2);
+  const sy     = Math.round((1 - scale*(worldY - camY)) * ch/2);
+  const sw     = Math.round(scale * cw * 1.6); // road projected width
+  return {sx, sy, sw, scale};
 }
 
-function getPlayerX(cw) {
-  const from = getLaneX(playerLane === LANE_L ? LANE_R : LANE_L, cw);
-  const to   = getLaneX(playerLane, cw);
-  const t = 1 - laneTransition;
-  laneTransition = Math.max(0, laneTransition - 0.15);
-  return from + (to - from) * t;
+function drawSegment(ctx, cw, p1, p2, index, rumble){
+  const c = segments[index % segments.length].color;
+  const r = rumble ? (index%2===0?'#c8281e':'#f0ede8') : c.road;
+
+  // Road surface
+  ctx.fillStyle = r;
+  ctx.beginPath();
+  ctx.moveTo(p1.sx - p1.sw/2, p1.sy);
+  ctx.lineTo(p1.sx + p1.sw/2, p1.sy);
+  ctx.lineTo(p2.sx + p2.sw/2, p2.sy);
+  ctx.lineTo(p2.sx - p2.sw/2, p2.sy);
+  ctx.closePath();
+  ctx.fill();
+
+  if(!rumble){
+    // Lane lines (thirds)
+    const lw = p1.sw * 0.015;
+    [-0.33, 0.33].forEach(t=>{
+      const x1 = p1.sx + t*p1.sw/2;
+      const x2 = p2.sx + t*p2.sw/2;
+      ctx.fillStyle = index%8<4 ? '#f5c842' : 'transparent';
+      ctx.fillRect(x1-lw/2, p2.sy, lw, p1.sy-p2.sy);
+    });
+    // Center dashes
+    if(index%4<2){
+      const lw2 = p1.sw*0.01;
+      ctx.fillStyle='#555';
+      ctx.fillRect(p1.sx-lw2/2, p2.sy, lw2, p1.sy-p2.sy);
+    }
+  }
 }
 
-function spawnObject() {
-  const lane = Math.random() < 0.5 ? LANE_L : LANE_R;
-  const roll = Math.random();
-  let def;
-  if (roll < 0.30) def = OBJECTS.cash;
-  else if (roll < 0.48) def = OBJECTS.cashBig;
-  else if (roll < 0.74) def = OBJECTS.hazard;
-  else def = OBJECTS.cone;
-  objects.push({ lane, def, y: -40, hit: false });
+function screenPos(segIdx, laneX, cw, ch, camPos, camX, camY){
+  const ni = ((segIdx - Math.floor(camPos)) % segments.length + segments.length) % segments.length;
+  const seg = segments[ni];
+  const dz  = (segIdx - camPos) * SEG_L;
+  if(dz <= 0) return null;
+  const camDepth = CAMERA_D;
+  const scale = camDepth / dz;
+  const sx = Math.round((1 + scale*(laneX*0.6 + seg.worldX - camX)) * cw/2);
+  const sy = Math.round((1 - scale*(seg.worldY - camY)) * ch/2);
+  const s  = scale * cw * 0.06;
+  return {sx, sy, s};
 }
 
-function gameLoop() {
-  if (!gameRunning) return;
-  animFrame = requestAnimationFrame(gameLoop);
-  frameCount++;
+function initRun(){
+  canvas = document.getElementById('gameCanvas');
+  ctx    = canvas.getContext('2d');
+  resizeCv();
 
-  const cw = canvas.width;
-  const ch = canvas.height;
-  const playerY = ch - 100;
-  const playerX = getPlayerX(cw);
-  const playerW = 36;
-  const playerH = 60;
-  const tireMod = STATE.upgrades.tires * 0.04;
+  buildTrack();
+  coins   = [];
+  hazards = [];
+  coinSpawnTimer   = 0;
+  hazardSpawnTimer = 0;
+  playerX  = 0;
+  speed    = 0;
+  maxSpeed = 0.18 + G.upgrades.engine * 0.025;
+  pos      = 0;
+  frameN   = 0;
+  eventsFired  = 0;
+  eventPending = false;
+  running  = true;
+  leftDown = false;
+  rightDown= false;
+  updateHUD();
+  cancelAnimationFrame(raf);
+  loop();
+}
 
-  // Speed ramp
-  speed = Math.min(10, speed + 0.0008);
-  STATE.distance += Math.round(speed);
-  roadOffset = (roadOffset + speed * 2) % 60;
+function resizeCv(){
+  const maxW = Math.min(700, window.innerWidth);
+  const maxH = window.innerHeight - 80;
+  canvas.width  = maxW;
+  canvas.height = maxH;
+}
+window.addEventListener('resize', ()=>{ if(running) resizeCv(); });
 
-  // Spawn
-  spawnTimer++;
-  spawnInterval = Math.max(40, 90 - frameCount * 0.015);
-  if (spawnTimer >= spawnInterval) { spawnTimer = 0; spawnObject(); }
+// ── Input ──
+window.addEventListener('keydown', e=>{
+  if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')  leftDown=true;
+  if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') rightDown=true;
+  if(e.key===' ') e.preventDefault();
+});
+window.addEventListener('keyup', e=>{
+  if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')  leftDown=false;
+  if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') rightDown=false;
+});
+let txStart=0;
+document.addEventListener('touchstart',e=>{txStart=e.touches[0].clientX},{passive:true});
+document.addEventListener('touchend',e=>{
+  if(!running||eventPending) return;
+  const dx=e.changedTouches[0].clientX-txStart;
+  if(Math.abs(dx)>25){ dx<0?leftDown=true:rightDown=true; setTimeout(()=>{leftDown=false;rightDown=false;},120); }
+},{passive:true});
 
-  // Event
-  if (!eventPending) {
-    eventTimer--;
-    if (eventTimer <= 0 && STATE.distance > 1500) {
+// ── Main loop ──
+function loop(){
+  if(!running) return;
+  raf = requestAnimationFrame(loop);
+  frameN++;
+
+  const cw = canvas.width, ch = canvas.height;
+
+  // Physics
+  speed = Math.min(maxSpeed, speed + 0.0018);
+  const actualSpeed = speed;
+  pos += actualSpeed;
+
+  // Steer
+  const tireFactor = 1 + G.upgrades.tires * 0.08;
+  const steerRate  = 0.022 * tireFactor;
+  const segI = Math.floor(pos) % segments.length;
+  const seg  = segments[segI];
+  const driftX = seg.curve * speed * 12;
+
+  if(leftDown)  playerX -= steerRate;
+  if(rightDown) playerX += steerRate;
+  playerX -= driftX * 0.06;
+  playerX  = Math.max(-1, Math.min(1, playerX));
+
+  // Spawn coins
+  coinSpawnTimer++;
+  if(coinSpawnTimer > 55){
+    coinSpawnTimer = 0;
+    const lanes = [-0.55, 0, 0.55];
+    const l = lanes[Math.floor(Math.random()*3)];
+    const big = Math.random() < 0.22;
+    coins.push({segIdx: Math.floor(pos) + DRAW_DIST - 5, laneX: l, collected:false, big});
+  }
+
+  // Spawn hazards
+  hazardSpawnTimer++;
+  const hInterval = Math.max(70, 130 - frameN * 0.025);
+  if(hazardSpawnTimer > hInterval){
+    hazardSpawnTimer = 0;
+    const lanes2 = [-0.55, 0.55];
+    const lh = lanes2[Math.floor(Math.random()*2)];
+    hazards.push({segIdx: Math.floor(pos) + DRAW_DIST - 5, laneX: lh, hit:false, size:1});
+  }
+
+  // Two-event trigger
+  if(!eventPending && eventsFired < EVENT_TRIGGERS.length){
+    const trigger = EVENT_TRIGGERS[eventsFired];
+    if(frameN >= trigger && frameN < trigger + 20){
       triggerEvent();
       return;
     }
   }
 
+  // End of run
+  if(frameN > 1400){ endRun(); return; }
+
   // ── DRAW ──
-  ctx.clearRect(0, 0, cw, ch);
+  ctx.clearRect(0,0,cw,ch);
 
-  // Sky / background
-  ctx.fillStyle = '#2a1a0a';
-  ctx.fillRect(0, 0, cw, ch * 0.35);
+  // Sky gradient (flat bands)
+  ctx.fillStyle='#1a0e06'; ctx.fillRect(0,0,cw,ch*0.55);
+  // Horizon glow
+  ctx.fillStyle='#2d1208'; ctx.fillRect(0,ch*0.42,cw,ch*0.06);
+  // Sun disc
+  const sunY = ch*0.44;
+  ctx.fillStyle='#e8580a';
+  ctx.beginPath(); ctx.arc(cw/2, sunY, 38, Math.PI, 2*Math.PI); ctx.fill();
+  ctx.fillStyle='#f5c842';
+  ctx.beginPath(); ctx.arc(cw/2, sunY, 28, Math.PI, 2*Math.PI); ctx.fill();
+  // Silhouette hills
+  ctx.fillStyle='#0d0804';
+  for(let i=0;i<5;i++){
+    const hx=(i*180+frameN*0.08)%(cw+200)-100;
+    const hw=180+i*30; const hh=40+i*12;
+    ctx.beginPath();
+    ctx.moveTo(hx,ch*0.48);
+    ctx.quadraticCurveTo(hx+hw/2, ch*0.48-hh, hx+hw, ch*0.48);
+    ctx.fill();
+  }
+  // Ground
+  ctx.fillStyle='#0d0a07'; ctx.fillRect(0,ch*0.48,cw,ch);
 
-  // Horizon details
-  ctx.fillStyle = '#3d2510';
-  for (let i = 0; i < 8; i++) {
-    const bx = (i * 130 + frameCount * 0.4) % (cw + 60) - 30;
-    ctx.fillRect(bx, ch * 0.25, 8, ch * 0.1);
+  // Project road segments
+  const camPos  = pos;
+  const camDepth= CAMERA_D;
+  let   x       = 0;
+  let   dx      = 0;
+  let   maxY    = ch;
+
+  // Accumulate curves ahead
+  const startSeg = Math.floor(camPos);
+  const camWorldY= segments[startSeg%segments.length].worldY;
+
+  let projected = [];
+  for(let n=0; n<DRAW_DIST; n++){
+    const si   = (startSeg + n) % segments.length;
+    const seg2 = segments[si];
+    const dz   = (n + 1 - (camPos % 1)) * SEG_L;
+    x  += dx;
+    dx += seg2.curve;
+    const wy   = (seg2.worldY - camWorldY) * CAMERA_H;
+    const scale= camDepth / dz;
+    const sx   = Math.round((0.5 + scale*(x + seg2.worldX*0 - playerX*0.5)) * cw);
+    const sy   = Math.round((0.5 - scale*(CAMERA_H + wy)) * ch);
+    const sw   = Math.round(scale * cw * 1.6);
+    projected.push({sx, sy, sw, si, dz, n, scale});
   }
 
-  // Road surface
-  const roadLeft = cw * 0.1;
-  const roadRight = cw * 0.9;
-  ctx.fillStyle = '#1e1c19';
-  ctx.fillRect(roadLeft, ch * 0.3, roadRight - roadLeft, ch);
+  // Draw back to front
+  for(let i=projected.length-2; i>=0; i--){
+    const p1 = projected[i+1];
+    const p2 = projected[i];
+    if(p2.sy >= maxY) continue;
+    maxY = p2.sy;
+    const rumble = Math.floor(p2.si/3)%2===0;
+    drawSegment(ctx, cw, p1, p2, p2.si, rumble);
 
-  // Road edges
-  ctx.strokeStyle = '#f5c842';
-  ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(roadLeft, ch * 0.3); ctx.lineTo(roadLeft, ch); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(roadRight, ch * 0.3); ctx.lineTo(roadRight, ch); ctx.stroke();
+    // Draw hazards on this segment
+    hazards.forEach(h=>{
+      if(h.hit) return;
+      const relSeg = h.segIdx - startSeg;
+      if(relSeg !== p2.n) return;
+      const sx2 = p2.sx + h.laneX * p2.sw * 0.38;
+      const sz  = Math.max(4, p2.scale * cw * 0.045);
+      // Draw as rival car shape
+      ctx.fillStyle='#4a90c4';
+      ctx.fillRect(sx2-sz*0.6, p2.sy-sz*1.8, sz*1.2, sz*1.8);
+      ctx.fillStyle='#2a5c8c';
+      ctx.fillRect(sx2-sz*0.4, p2.sy-sz*2.4, sz*0.8, sz*0.7);
+      ctx.fillStyle='rgba(180,220,255,0.5)';
+      ctx.fillRect(sx2-sz*0.35, p2.sy-sz*2.35, sz*0.7, sz*0.5);
+    });
 
-  // Center dashes
-  const mid = cw / 2;
-  ctx.setLineDash([30, 30]);
-  ctx.strokeStyle = '#8a6e1a';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(mid, ch * 0.3 - roadOffset);
-  ctx.lineTo(mid, ch);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Objects
-  objects.forEach(obj => {
-    obj.y += speed;
-    if (obj.hit) return;
-    const ox = getLaneX(obj.lane, cw);
-    const scale = 0.4 + (obj.y / ch) * 0.7;
-    const ow = obj.def.w * scale;
-    const oh = obj.def.h * scale;
-
-    // Draw object
-    ctx.fillStyle = obj.def.color;
-    if (obj.def.type === 'cash') {
-      ctx.fillRect(ox - ow/2, obj.y - oh/2, ow, oh);
-      ctx.fillStyle = '#0f0e0d';
-      ctx.font = `bold ${Math.round(8 * scale)}px Barlow`;
-      ctx.textAlign = 'center';
-      ctx.fillText('$', ox, obj.y + 3 * scale);
-    } else {
-      // Hazard — draw car/cone shape
-      ctx.beginPath();
-      ctx.moveTo(ox - ow/2, obj.y + oh/2);
-      ctx.lineTo(ox + ow/2, obj.y + oh/2);
-      ctx.lineTo(ox + ow/2 * 0.7, obj.y - oh/2);
-      ctx.lineTo(ox - ow/2 * 0.7, obj.y - oh/2);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // Collision
-    if (!obj.hit && Math.abs(ox - playerX) < (playerW/2 + ow/2 - 8 + tireMod * 40) && Math.abs(obj.y - playerY) < (playerH/2 + oh/2 - 10)) {
-      obj.hit = true;
-      if (obj.def.type === 'cash') {
-        STATE.cash += obj.def.value;
-        showCashPop('+$' + obj.def.value);
-      } else {
-        const dmg = Math.max(3, obj.def.dmg - Math.round(tireMod * 50));
-        STATE.condition = Math.max(0, STATE.condition - dmg);
-        flashDamage();
-        if (STATE.condition <= 0) { endRun(); return; }
+    // Draw coins on this segment
+    coins.forEach(c=>{
+      if(c.collected) return;
+      const relSeg2 = c.segIdx - startSeg;
+      if(relSeg2 !== p2.n) return;
+      const cx2 = p2.sx + c.laneX * p2.sw * 0.38;
+      const cr  = Math.max(3, p2.scale * cw * (c.big?0.038:0.026));
+      ctx.fillStyle = c.big ? '#f5c842' : '#7ec850';
+      ctx.beginPath(); ctx.arc(cx2, p2.sy-cr, cr, 0, Math.PI*2); ctx.fill();
+      if(cr>5){
+        ctx.fillStyle='rgba(0,0,0,0.35)';
+        ctx.font=`bold ${Math.round(cr*1.1)}px Barlow`;
+        ctx.textAlign='center';
+        ctx.fillText('$', cx2, p2.sy-cr+cr*0.38);
       }
+    });
+  }
+
+  // Collision detection (screen-space)
+  const carScreenX = cw/2;
+  const carScreenY = ch - 80;
+
+  coins.forEach(c=>{
+    if(c.collected) return;
+    const relSeg = c.segIdx - startSeg;
+    if(relSeg < 0 || relSeg >= projected.length) return;
+    const p = projected[relSeg];
+    if(!p) return;
+    const cx2 = p.sx + c.laneX * p.sw * 0.38;
+    if(Math.abs(p.sy - carScreenY) < 30 && Math.abs(cx2 - carScreenX) < 50){
+      c.collected = true;
+      const amt = c.big ? 380 : 140;
+      G.cash += amt;
+      popCash((c.big?'+$':'+$')+amt);
       updateHUD();
     }
   });
 
-  // Remove off-screen
-  objects = objects.filter(o => o.y < ch + 60);
+  hazards.forEach(h=>{
+    if(h.hit) return;
+    const relSeg = h.segIdx - startSeg;
+    if(relSeg < 0 || relSeg >= projected.length) return;
+    const p = projected[relSeg];
+    if(!p) return;
+    const hx2 = p.sx + h.laneX * p.sw * 0.38;
+    const tireMod = G.upgrades.tires * 18;
+    if(Math.abs(p.sy - carScreenY) < 40 && Math.abs(hx2 - carScreenX) < (52 - tireMod)){
+      h.hit = true;
+      const dmg = Math.max(4, 14 - G.upgrades.tires*3);
+      G.condition = Math.max(0, G.condition - dmg);
+      flashDmg();
+      updateHUD();
+      if(G.condition <= 0){ endRun(); return; }
+    }
+  });
+
+  // Clean up
+  coins   = coins.filter(c=>c.segIdx - startSeg > -5);
+  hazards = hazards.filter(h=>h.segIdx - startSeg > -5);
 
   // Draw car
-  drawCar(ctx, playerX, playerY, playerW, playerH);
+  drawCar(ctx, cw, ch);
 
-  // Distance end
-  if (STATE.distance > 8000 + STATE.runsThisEra * 2000) { endRun(); }
+  // Speed display
+  document.getElementById('h-spd').textContent = Math.round(speed * 800) + ' mph';
 }
 
-function drawCar(ctx, x, y, w, h) {
+function drawCar(ctx, cw, ch){
+  const cx = cw/2, by = ch - 20;
+  const w = 54, h = 80;
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.4)';
+  ctx.beginPath(); ctx.ellipse(cx, by+4, w*0.55, 8, 0, 0, Math.PI*2); ctx.fill();
   // Body
-  ctx.fillStyle = '#c8281e';
-  ctx.fillRect(x - w/2, y - h/2, w, h);
+  ctx.fillStyle='#c8281e';
+  ctx.fillRect(cx-w/2, by-h, w, h);
   // Roof
-  ctx.fillStyle = '#9e1f16';
-  ctx.fillRect(x - w/2 + 4, y - h/2, w - 8, h * 0.45);
+  ctx.fillStyle='#9e1f16';
+  ctx.fillRect(cx-w/2+6, by-h, w-12, h*0.48);
   // Windshield
-  ctx.fillStyle = 'rgba(100,180,220,0.5)';
-  ctx.fillRect(x - w/2 + 6, y - h/2 + 4, w - 12, h * 0.25);
+  ctx.fillStyle='rgba(100,190,230,0.55)';
+  ctx.fillRect(cx-w/2+9, by-h+5, w-18, h*0.3);
+  // Rear window
+  ctx.fillStyle='rgba(80,160,200,0.4)';
+  ctx.fillRect(cx-w/2+9, by-h*0.48+2, w-18, h*0.14);
   // Headlights
-  ctx.fillStyle = '#fff8c0';
-  ctx.fillRect(x - w/2 + 2, y + h/2 - 10, 8, 5);
-  ctx.fillRect(x + w/2 - 10, y + h/2 - 10, 8, 5);
+  ctx.fillStyle='#fff8b0';
+  ctx.fillRect(cx-w/2+3, by-14, 11, 7);
+  ctx.fillRect(cx+w/2-14, by-14, 11, 7);
   // Taillights
-  ctx.fillStyle = '#ff2200';
-  ctx.fillRect(x - w/2 + 2, y - h/2 + 2, 6, 4);
-  ctx.fillRect(x + w/2 - 8, y - h/2 + 2, 6, 4);
+  ctx.fillStyle='#ff1a00';
+  ctx.fillRect(cx-w/2+3, by-h+3, 9, 5);
+  ctx.fillRect(cx+w/2-12, by-h+3, 9, 5);
   // Wheels
-  ctx.fillStyle = '#111';
-  ctx.fillRect(x - w/2 - 4, y - h/2 + 8, 6, 14);
-  ctx.fillRect(x + w/2 - 2, y - h/2 + 8, 6, 14);
-  ctx.fillRect(x - w/2 - 4, y + h/2 - 22, 6, 14);
-  ctx.fillRect(x + w/2 - 2, y + h/2 - 22, 6, 14);
+  ctx.fillStyle='#111';
+  const wy=by-18, wh=22;
+  ctx.fillRect(cx-w/2-5, wy-wh, 8, wh);
+  ctx.fillRect(cx+w/2-3, wy-wh, 8, wh);
+  ctx.fillRect(cx-w/2-5, by-h+12, 8, wh);
+  ctx.fillRect(cx+w/2-3, by-h+12, 8, wh);
+  // Chrome strip
+  ctx.fillStyle='#c8c8c8';
+  ctx.fillRect(cx-w/2, by-h*0.52, w, 3);
 }
 
-function updateHUD() {
-  document.getElementById('hud-cash').textContent = '$' + STATE.cash.toLocaleString();
-  document.getElementById('hud-dist').textContent = Math.round(STATE.distance / 100) + 'm';
-  const bar = document.getElementById('condition-bar');
-  const pct = document.getElementById('condition-pct');
-  bar.style.width = STATE.condition + '%';
-  bar.style.background = STATE.condition > 60 ? '#4caf50' : STATE.condition > 30 ? '#ff9800' : '#e8362a';
-  pct.textContent = STATE.condition + '%';
+function updateHUD(){
+  document.getElementById('h-cash').textContent = '$'+G.cash.toLocaleString();
+  const f = document.getElementById('cond-fill');
+  const p = document.getElementById('cond-pct');
+  f.style.width = G.condition+'%';
+  f.style.background = G.condition>60?'#4caf50':G.condition>30?'#ff9800':'#e8362a';
+  p.textContent = G.condition+'%';
 }
 
-function flashDamage() {
-  const el = document.getElementById('damage-flash');
-  el.classList.remove('flash');
-  void el.offsetWidth;
-  el.classList.add('flash');
-}
-
-function showCashPop(label) {
-  const el = document.getElementById('cash-pop');
-  el.textContent = label;
-  el.classList.remove('pop');
-  void el.offsetWidth;
-  el.classList.add('pop');
-}
-
-// ── EVENTS ──
+// ════════════════════════════════════════════════
+//  EVENT
+// ════════════════════════════════════════════════
 const EVENTS = [
   {
-    title: 'Pink Slip Race!',
-    body: 'A blacked-out Trans Am pulls up and revs. Double your cash — or lose half of it. You in?',
-    yes: 'Race Him',
-    no: 'Back Off',
-    onYes: () => {
-      if (Math.random() < 0.55) { STATE.cash *= 2; showCashPop('WINNER!'); }
-      else { STATE.cash = Math.round(STATE.cash / 2); flashDamage(); }
-    }
+    title:'Pink Slip Race',
+    body:'A blacked-out Trans Am pulls alongside and revs. Double your cash — or lose half. You in?',
+    yes:'Race Him', no:'Back Off',
+    onYes(){ Math.random()<0.55 ? (G.cash*=2, popCash('WINNER!')) : (G.cash=Math.round(G.cash/2), flashDmg()); },
   },
   {
-    title: 'Roadside Buyer',
-    body: 'A guy flags you down. Says he\'ll give you $600 cash right now, no auction. Do you take it?',
-    yes: 'Cash In Hand',
-    no: 'Keep Rolling',
-    onYes: () => { STATE.cash += 600; showCashPop('+$600'); }
+    title:'Roadside Score',
+    body:'A guy waves you down. Got $650 cash for you right now — no auction, no questions asked.',
+    yes:'Take It', no:'Keep Rolling',
+    onYes(){ G.cash+=650; popCash('+$650'); },
   },
   {
-    title: 'Speed Trap Ahead',
-    body: 'State trooper clocked you. You can pay the fine or make a run for it — but running risks a ding.',
-    yes: 'Run For It',
-    no: 'Pay $200',
-    onYes: () => {
-      if (Math.random() < 0.5) { showCashPop('Clean Escape!'); }
-      else { STATE.condition = Math.max(0, STATE.condition - 10); flashDamage(); }
-    },
-    onNo: () => { STATE.cash = Math.max(0, STATE.cash - 200); }
+    title:'Speed Trap',
+    body:'Trooper clocked you running hot. Pay the $250 fine, or floor it and hope for the best.',
+    yes:'Floor It', no:'Pay $250',
+    onYes(){ Math.random()<0.5 ? popCash('Clean escape!') : (G.condition=Math.max(0,G.condition-12), flashDmg()); },
+    onNo(){ G.cash=Math.max(0,G.cash-250); },
   },
 ];
 
-function triggerEvent() {
+function triggerEvent(){
+  running = false;
+  cancelAnimationFrame(raf);
   eventPending = true;
-  gameRunning = false;
-  cancelAnimationFrame(animFrame);
-
-  const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
-  document.getElementById('toast-title').textContent = ev.title;
-  document.getElementById('toast-body').textContent = ev.body;
-  document.getElementById('toast-yes').textContent = ev.yes;
-  document.getElementById('toast-no').textContent = ev.no || 'Back Off';
-
-  const toast = document.getElementById('event-toast');
-  toast.classList.add('show');
-
-  document.getElementById('toast-yes').onclick = () => {
-    if (ev.onYes) ev.onYes();
-    closeEvent();
-  };
-  document.getElementById('toast-no').onclick = () => {
-    if (ev.onNo) ev.onNo();
-    closeEvent();
-  };
+  eventsFired++;
+  const ev = EVENTS[Math.floor(Math.random()*EVENTS.length)];
+  document.getElementById('ev-title').textContent = ev.title;
+  document.getElementById('ev-body').textContent  = ev.body;
+  document.getElementById('ev-yes').textContent   = ev.yes;
+  document.getElementById('ev-no').textContent    = ev.no;
+  const modal = document.getElementById('event-modal');
+  modal.classList.add('show');
+  document.getElementById('ev-yes').onclick = ()=>{ if(ev.onYes) ev.onYes(); closeEvent(); };
+  document.getElementById('ev-no').onclick  = ()=>{ if(ev.onNo)  ev.onNo();  closeEvent(); };
 }
 
-function closeEvent() {
-  document.getElementById('event-toast').classList.remove('show');
+function closeEvent(){
+  document.getElementById('event-modal').classList.remove('show');
   eventPending = false;
-  eventTimer = 300 + Math.random() * 200;
   updateHUD();
-  if (STATE.condition > 0) {
-    gameRunning = true;
-    gameLoop();
-  } else {
-    endRun();
-  }
+  if(G.condition > 0){ running=true; loop(); }
+  else endRun();
 }
 
-// ── END RUN ──
-function endRun() {
-  gameRunning = false;
-  cancelAnimationFrame(animFrame);
-  STATE.runsThisEra++;
-  STATE.distance = 0;
-  showUpgradeScreen();
+// ════════════════════════════════════════════════
+//  FLOW CONTROL
+// ════════════════════════════════════════════════
+function startGame(){
+  G.cash=0; G.condition=100; G.runs=0;
+  G.upgrades={engine:0,body:0,interior:0,tires:0,provenance:0};
+  G.selectedBuyer=null;
+  show('s-game');
+  initRun();
 }
 
-// ── UPGRADE SCREEN ──
-function showUpgradeScreen() {
-  document.getElementById('upgrade-budget').textContent = '$' + STATE.cash.toLocaleString() + ' to spend';
-  document.getElementById('upgrade-car-state').textContent = 'Condition: ' + STATE.condition + '%';
-  renderUpgradeGrid();
-  showScreen('screen-upgrade');
+function runAgain(){
+  G.condition = Math.min(100, G.condition+5);
+  show('s-game');
+  initRun();
 }
 
-function renderUpgradeGrid() {
-  const grid = document.getElementById('upgrade-grid');
-  grid.innerHTML = '';
-  UPGRADES_DEF.forEach(upg => {
-    const level = STATE.upgrades[upg.key];
-    const maxed = level >= upg.max;
-    const cost = maxed ? 0 : upg.costs[level];
-    const cantAfford = !maxed && cost > STATE.cash;
-    const card = document.createElement('div');
-    card.className = 'upgrade-card' + (maxed ? ' maxed' : '') + (cantAfford ? ' cant-afford' : '');
+function endRun(){
+  running=false;
+  cancelAnimationFrame(raf);
+  G.runs++;
+  showUpgrade();
+}
 
-    let pips = '';
-    for (let i = 0; i < upg.max; i++) {
-      pips += `<div class="upgrade-pip ${i < level ? 'filled' : ''}"></div>`;
-    }
+// ── UPGRADE ──
+function showUpgrade(){
+  document.getElementById('upg-budget').textContent = '$'+G.cash.toLocaleString()+' to spend';
+  document.getElementById('upg-cond').textContent   = 'Condition: '+G.condition+'%';
+  renderUpgrades();
+  show('s-upgrade');
+}
 
-    card.innerHTML = `
-      ${maxed ? '<span class="upgrade-done-badge">MAXED</span>' : ''}
-      <div class="upgrade-name">${upg.name}</div>
-      <div class="upgrade-effect">${upg.effect}</div>
-      ${!maxed ? `<div class="upgrade-cost">$${cost.toLocaleString()}</div>` : ''}
-      <div class="upgrade-level">${pips}</div>
+function renderUpgrades(){
+  const grid = document.getElementById('upg-grid');
+  grid.innerHTML='';
+  UPGRADES.forEach(u=>{
+    const lv    = G.upgrades[u.key];
+    const maxed = lv >= u.max;
+    const cost  = maxed ? 0 : u.costs[lv];
+    const broke = !maxed && cost > G.cash;
+    const card  = document.createElement('div');
+    card.className = 'upg-card'+(maxed?' maxed':'')+(broke?' broke':'');
+    let pips='';
+    for(let i=0;i<u.max;i++) pips+=`<div class="pip${i<lv?' on':''}"></div>`;
+    card.innerHTML=`
+      ${maxed?'<span class="upg-maxbadge">MAXED</span>':''}
+      <div class="upg-name">${u.name}</div>
+      <div class="upg-fx">${u.fx}</div>
+      ${!maxed?`<div class="upg-cost">$${cost.toLocaleString()}</div>`:''}
+      <div class="upg-pips">${pips}</div>
     `;
-    if (!maxed && !cantAfford) {
-      card.addEventListener('click', () => {
-        STATE.cash -= cost;
-        STATE.upgrades[upg.key]++;
-        document.getElementById('upgrade-budget').textContent = '$' + STATE.cash.toLocaleString() + ' to spend';
-        renderUpgradeGrid();
+    if(!maxed&&!broke){
+      card.addEventListener('click',()=>{
+        G.cash-=cost; G.upgrades[u.key]++;
+        document.getElementById('upg-budget').textContent='$'+G.cash.toLocaleString()+' to spend';
+        renderUpgrades();
       });
     }
     grid.appendChild(card);
   });
 }
 
-// ── AUCTION SCREEN ──
-function goToAuction() {
-  STATE.selectedBuyer = null;
+// ── AUCTION ──
+function goAuction(){
+  G.selectedBuyer=null;
   renderBuyers();
   renderBreakdown();
-  showScreen('screen-auction');
+  show('s-auction');
 }
 
-function renderBuyers() {
-  const row = document.getElementById('buyers-row');
-  row.innerHTML = '';
-  BUYERS.forEach(b => {
-    const offer = b.multiplier !== null
-      ? '$' + calcSalePrice(b.id).toLocaleString()
-      : 'Market Price';
-    const card = document.createElement('div');
-    card.className = 'buyer-card' + (STATE.selectedBuyer === b.id ? ' selected' : '');
-    card.innerHTML = `
-      <div class="buyer-name">${b.name}</div>
-      <div class="buyer-desc">${b.desc}</div>
-      <div class="buyer-offer">${offer}</div>
-      <div class="buyer-risk">${b.riskLabel}</div>
-    `;
-    card.addEventListener('click', () => {
-      STATE.selectedBuyer = b.id;
-      renderBuyers();
-      renderBreakdown();
-    });
+function renderBuyers(){
+  const row = document.getElementById('buyers');
+  row.innerHTML='';
+  BUYERS.forEach(b=>{
+    const offer = b.mult!==null ? '$'+salePrice(b.id).toLocaleString() : 'Market';
+    const card  = document.createElement('div');
+    card.className = 'buyer'+(G.selectedBuyer===b.id?' sel':'');
+    card.innerHTML=`<div class="buyer-name">${b.name}</div><div class="buyer-desc">${b.desc}</div><div class="buyer-offer">${offer}</div><div class="buyer-risk">${b.risk}</div>`;
+    card.addEventListener('click',()=>{ G.selectedBuyer=b.id; renderBuyers(); renderBreakdown(); });
     row.appendChild(card);
   });
 }
 
-function renderBreakdown() {
-  const bd = document.getElementById('sell-breakdown');
-  const base = calcBaseValue();
-  if (!STATE.selectedBuyer) {
-    bd.innerHTML = '<div style="font-size:13px;color:#555;text-align:center;padding:12px">Select a buyer above</div>';
-    return;
-  }
-  const final = calcSalePrice(STATE.selectedBuyer);
-  const buyerMod = final - base;
-  const provBonus = STATE.upgrades.provenance ? Math.round(base * 0.15) : 0;
-  const condPenalty = Math.round(base * (1 - STATE.condition / 100) * 0.4);
-
-  bd.innerHTML = `
-    <div class="breakdown-row"><span class="breakdown-label">Base vehicle value</span><span class="breakdown-val">$${base.toLocaleString()}</span></div>
-    <div class="breakdown-row"><span class="breakdown-label">Condition (${STATE.condition}%)</span><span class="breakdown-val ${condPenalty > 0 ? 'neg' : 'pos'}">-$${condPenalty.toLocaleString()}</span></div>
-    ${provBonus ? `<div class="breakdown-row"><span class="breakdown-label">Provenance bonus</span><span class="breakdown-val pos">+$${provBonus.toLocaleString()}</span></div>` : ''}
-    <div class="breakdown-row"><span class="breakdown-label">Buyer premium/discount</span><span class="breakdown-val ${buyerMod >= 0 ? 'pos' : 'neg'}">${buyerMod >= 0 ? '+' : ''}$${buyerMod.toLocaleString()}</span></div>
-    <div class="breakdown-row"><span class="breakdown-label">Final sale price</span><span class="breakdown-val total">$${final.toLocaleString()}</span></div>
+function renderBreakdown(){
+  const bd = document.getElementById('breakdown');
+  if(!G.selectedBuyer){ bd.innerHTML='<div style="font-size:13px;color:#444;text-align:center;padding:10px">Select a buyer above</div>'; return; }
+  const base    = baseValue();
+  const final   = salePrice(G.selectedBuyer);
+  const buyMod  = final - base;
+  const provB   = G.upgrades.provenance ? Math.round(base*0.15) : 0;
+  const condPen = Math.round(base*(1-G.condition/100)*0.45);
+  bd.innerHTML=`
+    <div class="brow"><span class="blbl">Base value</span><span class="bval">$${base.toLocaleString()}</span></div>
+    <div class="brow"><span class="blbl">Condition (${G.condition}%)</span><span class="bval n">-$${condPen.toLocaleString()}</span></div>
+    ${provB?`<div class="brow"><span class="blbl">Provenance bonus</span><span class="bval p">+$${provB.toLocaleString()}</span></div>`:''}
+    <div class="brow"><span class="blbl">Buyer premium / discount</span><span class="bval ${buyMod>=0?'p':'n'}">${buyMod>=0?'+':''} $${Math.abs(buyMod).toLocaleString()}</span></div>
+    <div class="brow"><span class="blbl">Final sale price</span><span class="bval tot">$${final.toLocaleString()}</span></div>
   `;
-  STATE.finalSalePrice = final;
+  G.finalPrice = final;
 }
 
-function confirmSell() {
-  if (!STATE.selectedBuyer) { alert('Pick a buyer first.'); return; }
-  showResultScreen();
+function confirmSell(){
+  if(!G.selectedBuyer){ return; }
+  showResult();
 }
 
-// ── RESULT SCREEN ──
-function showResultScreen() {
-  const price = STATE.finalSalePrice;
-  const good = price >= 6000;
-
-  document.getElementById('result-headline').textContent = good ? 'Clean Deal' : 'Took What You Could Get';
-  document.getElementById('result-amount').textContent = '$' + price.toLocaleString();
-
-  const stats = document.getElementById('result-stats');
-  stats.innerHTML = `
-    <div class="result-stat"><div class="result-stat-label">Condition at sale</div><div class="result-stat-val">${STATE.condition}%</div></div>
-    <div class="result-stat"><div class="result-stat-label">Upgrades installed</div><div class="result-stat-val">${Object.values(STATE.upgrades).reduce((a,b)=>a+b,0)}</div></div>
-    <div class="result-stat"><div class="result-stat-label">Buyer</div><div class="result-stat-val">${BUYERS.find(b=>b.id===STATE.selectedBuyer).name.split(' ')[0]}</div></div>
+function showResult(){
+  const p = G.finalPrice;
+  document.getElementById('res-head').textContent = p>=6500?'Clean Deal':'Took What You Could Get';
+  document.getElementById('res-amt').textContent  = '$'+p.toLocaleString();
+  const buyer = BUYERS.find(b=>b.id===G.selectedBuyer);
+  document.getElementById('res-stats').innerHTML=`
+    <div class="rs"><div class="rs-lbl">Condition at sale</div><div class="rs-val">${G.condition}%</div></div>
+    <div class="rs"><div class="rs-lbl">Upgrades</div><div class="rs-val">${Object.values(G.upgrades).reduce((a,b)=>a+b,0)}</div></div>
+    <div class="rs"><div class="rs-lbl">Buyer</div><div class="rs-val">${buyer.name.split(' ')[0]}</div></div>
+    <div class="rs"><div class="rs-lbl">Runs this era</div><div class="rs-val">${G.runs}</div></div>
   `;
-  showScreen('screen-result');
+  show('s-result');
 }
-
-// resize
-window.addEventListener('resize', () => {
-  if (gameRunning) { resizeCanvas(); }
-});
 </script>
 </body>
 </html>
