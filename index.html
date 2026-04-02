@@ -343,7 +343,7 @@ function loop(){
   coinTimer++;
   if(coinTimer>55){
     coinTimer=0;
-    const lx=[-0.5,0,0.5][Math.floor(Math.random()*3)];
+    const lx=[-0.72, -0.36, 0, 0.36, 0.72][Math.floor(Math.random()*5)];
     coins.push({z:camZ+SPAWN_AHEAD, lx, done:false, big:Math.random()<0.22});
   }
   // Spawn hazards
@@ -608,11 +608,7 @@ function drawCar(ctx,cx,by){
   if(Math.random()<0.4) spawnSmoke(cx,by+CAR_H*0.46,CAR_W);
 
   if(sprite.ready && sprite.img){
-    // The PNG has a black background — use 'lighter' blend so black
-    // becomes transparent against the dark road naturally
-    ctx.globalCompositeOperation='lighter';
     ctx.drawImage(sprite.img, cx-CAR_W/2, by-CAR_H, CAR_W, CAR_H);
-    ctx.globalCompositeOperation='source-over';
   } else {
     // Fallback rectangles if image hasn't loaded
     ctx.fillStyle='#1a2a3a';
