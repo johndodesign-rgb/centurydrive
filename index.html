@@ -220,7 +220,7 @@ const G={cash:0,condition:100,runs:0,selectedBuyer:null,finalPrice:0,
 
 function updateHUD(){
   document.getElementById('h-cash').textContent='$'+G.cash.toLocaleString();
-  document.getElementById('h-spd').textContent=Math.round(speed*800)+' mph';
+  document.getElementById('h-spd').textContent=Math.round(speed*26)+' mph';
   const f=document.getElementById('cond-fill');
   f.style.width=G.condition+'%';
   f.style.background=G.condition>60?'#4caf50':G.condition>30?'#ff9800':'#e8362a';
@@ -280,7 +280,7 @@ function initRun(){
   sizeCv();
   coins=[];hazards=[];coinTimer=0;hazTimer=0;
   playerX=0;speed=0;camZ=0;frameN=0;
-  maxSpd=0.9+G.upgrades.engine*0.15; // pixels per frame
+  maxSpd=3+G.upgrades.engine*0.5; // world units per frame (tuned)
   eventsFired=0;eventPending=false;
   running=true;
   updateHUD();
@@ -323,7 +323,7 @@ function loop(){
   const SEG_LEN=200; // world units per segment
 
   // Ramp speed
-  speed=Math.min(maxSpd, speed + (maxSpd*0.008));
+  speed=Math.min(maxSpd, speed + (maxSpd*0.006));
   camZ+=speed;
 
   // Steer
@@ -337,19 +337,21 @@ function loop(){
   if(rightDown)playerX+=steer;
   playerX=Math.max(-1,Math.min(1,playerX));
 
-  // Spawn coins ahead
+  // Spawn coins ahead — place at a fixed world-depth ahead of camera
+  // SPAWN_AHEAD must match the depth range the scanlines actually draw
+  const SPAWN_AHEAD = SEG_LEN * 8; // ~8 segments ahead
   coinTimer++;
   if(coinTimer>55){
     coinTimer=0;
     const lx=[-0.5,0,0.5][Math.floor(Math.random()*3)];
-    coins.push({z:camZ+H*3.5, lx, done:false, big:Math.random()<0.22});
+    coins.push({z:camZ+SPAWN_AHEAD, lx, done:false, big:Math.random()<0.22});
   }
   // Spawn hazards
   hazTimer++;
   if(hazTimer>Math.max(60,110-frameN*0.018)){
     hazTimer=0;
     const lx=Math.random()<0.5?-0.5:0.5;
-    hazards.push({z:camZ+H*3.8, lx, done:false});
+    hazards.push({z:camZ+SPAWN_AHEAD*1.1, lx, done:false});
   }
 
   // Events
@@ -390,11 +392,11 @@ function loop(){
   const ROAD_H = H - SKY_BOTTOM; // height of road area in pixels
   const ROAD_W_BASE = W * 0.82;  // road width at bottom of screen
 
-  // Curve accumulator — we accumulate curve offset as we go deeper
-  let curveOffset=0;
-  // Track rumble pattern
-  let lastSegForRumble=-1;
-  let rumbleOn=false;
+  // Curve: accumulate as we sweep from bottom (near) to top (far)
+  // We draw bottom→top so we add curve incrementally
+  let curveAccum = 0;
+  let lastSeg = -1;
+  let rumbleOn = false;
 
   // We'll record where coins/hazards appear on screen for collision
   const objScreenPos=[];
@@ -404,32 +406,32 @@ function loop(){
     const t=(y-SKY_BOTTOM)/ROAD_H;
     if(t<=0.001)continue;
 
-    // Perspective: things get bigger as t→1
+    // Perspective scale
     const lineW=ROAD_W_BASE*t;
-    // Depth: how far into the world this scanline represents
-    // depth=1/t means t=1(bottom) → depth=1, t→0 → very far
-    const depth=1/t;
 
-    // Which track segment is this scanline looking at?
-    const worldZ=camZ + depth*SEG_LEN*0.5;
-    const si=Math.floor(worldZ/SEG_LEN)%TRACK.length;
-    const thisSeg=TRACK[si];
+    // Map this scanline to a world-Z distance from camera
+    // Using a proper perspective projection: depth = scale / t
+    // where scale controls how far the road extends
+    const DEPTH_SCALE = SEG_LEN * 12;
+    const worldDist = DEPTH_SCALE * (1/t - 1); // 0 at bottom, large at horizon
+    const worldZ = camZ + worldDist;
 
-    // Accumulate curve — we compute it fresh per scanline
-    // by summing curve over the visible segments at this depth
-    let cxAccum=0;
-    const numSegsAhead=Math.floor(depth*0.5);
-    for(let d=0;d<numSegsAhead&&d<60;d++){
-      const ds=TRACK[(segIdx+d)%TRACK.length];
-      cxAccum+=ds.curve*(numSegsAhead-d)/numSegsAhead;
+    // Which segment
+    const si = Math.floor(worldZ / SEG_LEN) % TRACK.length;
+    const thisSeg = TRACK[(si + TRACK.length) % TRACK.length];
+
+    // Accumulate curve offset — add segment curve weighted by depth step
+    // We step upward (increasing depth), so accumulate going up
+    if(si !== lastSeg){
+      curveAccum += thisSeg.curve * 18;
+      lastSeg = si;
+      rumbleOn = !rumbleOn;
     }
 
-    // Road center X — shifted by playerX and curve
-    const roadCX = W*0.5 - playerX*(lineW*0.35) + cxAccum*lineW*0.12;
+    // Road center X — player offset + curve push
+    const roadCX = W*0.5 - playerX*(lineW*0.35) + curveAccum * t * 0.8;
 
-    // Rumble strip (alternates every ~8 scanlines of the same segment)
-    if(si!==lastSegForRumble){lastSegForRumble=si;rumbleOn=!rumbleOn;}
-    const isRumble=rumbleOn;
+    const isRumble = rumbleOn;
 
     // Colors
     const grassCol='#0d0a04';
@@ -465,12 +467,16 @@ function loop(){
     }
 
     // ── Coins & hazards at this depth ──
-    const targetDepth=Math.round(depth*10);
+    // Match using worldDist from camera — bucket into 20-unit slots
+    const BUCKET = 20;
+    const distBucket = Math.round(worldDist / BUCKET);
 
     for(let ci=0;ci<coins.length;ci++){
       const c=coins[ci];if(c.done)continue;
-      const cd=Math.round(((c.z-camZ)/SEG_LEN*0.5)*10);
-      if(cd===targetDepth){
+      const objDist = c.z - camZ;
+      if(objDist < 0){c.done=true;continue;} // passed behind camera
+      const objBucket = Math.round(objDist / BUCKET);
+      if(objBucket===distBucket){
         const cx=roadCX+c.lx*lineW*0.34;
         const r=Math.max(3,lineW*(c.big?0.042:0.026));
         ctx.fillStyle=c.big?'#f5c842':'#7ec850';
@@ -488,18 +494,18 @@ function loop(){
 
     for(let hi=0;hi<hazards.length;hi++){
       const h=hazards[hi];if(h.done)continue;
-      const hd=Math.round(((h.z-camZ)/SEG_LEN*0.5)*10);
-      if(hd===targetDepth){
+      const objDist = h.z - camZ;
+      if(objDist < 0){h.done=true;continue;}
+      const objBucket = Math.round(objDist / BUCKET);
+      if(objBucket===distBucket){
         const hx=roadCX+h.lx*lineW*0.34;
         const sz=Math.max(5,lineW*0.055);
-        // Rival car
         ctx.fillStyle='#3a6898';
         ctx.fillRect(hx-sz*0.5,y-sz*1.7,sz,sz*1.7);
         ctx.fillStyle='#1e4a70';
         ctx.fillRect(hx-sz*0.36,y-sz*2.3,sz*0.72,sz*0.68);
         ctx.fillStyle='rgba(160,210,255,0.55)';
         ctx.fillRect(hx-sz*0.28,y-sz*2.24,sz*0.56,sz*0.52);
-        // taillights
         ctx.fillStyle='#ff2200';
         ctx.fillRect(hx-sz*0.5,y-sz*1.7,sz*0.16,sz*0.1);
         ctx.fillRect(hx+sz*0.34,y-sz*1.7,sz*0.16,sz*0.1);
@@ -533,47 +539,90 @@ function loop(){
   }
 
   // Cull far-behind objects
-  coins  =coins.filter(c=>c.z>camZ-SEG_LEN*2);
-  hazards=hazards.filter(h=>h.z>camZ-SEG_LEN*2);
+  coins  =coins.filter(c=>c.z>camZ-SEG_LEN);
+  hazards=hazards.filter(h=>h.z>camZ-SEG_LEN);
 
   // ── PLAYER CAR ─────────────────────────────
   drawCar(ctx,carX,carY);
 }
 
+// ── Car sprite loader ──
+// Each era will have its own image. For now: Muscle & Mayhem.
+const CAR_SPRITES = {
+  muscle: { src:'./MuscleCar.png', img:null, ready:false }
+};
+(function preloadSprites(){
+  for(const key in CAR_SPRITES){
+    const s=CAR_SPRITES[key];
+    const i=new Image();
+    i.onload=()=>{ s.img=i; s.ready=true; };
+    i.onerror=()=>{ s.ready=false; }; // graceful fallback to rectangles
+    i.src=s.src;
+  }
+})();
+
+// Exhaust smoke particles
+let smokeParticles=[];
+function spawnSmoke(cx,by,carW){
+  // Two exhaust pipes — match image geometry
+  const pipes=[cx-carW*0.3, cx+carW*0.3];
+  for(const px of pipes){
+    smokeParticles.push({
+      x: px + (Math.random()-0.5)*4,
+      y: by + 4,
+      vx: (Math.random()-0.5)*0.6,
+      vy: Math.random()*1.2+0.4,
+      alpha: 0.55,
+      r: Math.random()*4+3
+    });
+  }
+}
+function updateSmoke(){
+  smokeParticles=smokeParticles.filter(p=>p.alpha>0.02);
+  smokeParticles.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy;
+    p.r+=0.3;
+    p.alpha-=0.022;
+  });
+}
+function drawSmoke(ctx){
+  smokeParticles.forEach(p=>{
+    ctx.globalAlpha=p.alpha*0.7;
+    ctx.fillStyle='#ccc';
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+}
+
 function drawCar(ctx,cx,by){
-  const W=52,H=78;
-  // Shadow
-  ctx.fillStyle='rgba(0,0,0,0.3)';
-  ctx.beginPath();ctx.ellipse(cx,by+5,W*0.48,6,0,0,Math.PI*2);ctx.fill();
-  // Body
-  ctx.fillStyle='#c8281e';
-  ctx.fillRect(cx-W/2,by-H,W,H);
-  // Cabin / roof
-  ctx.fillStyle='#9e1f16';
-  ctx.fillRect(cx-W/2+7,by-H,W-14,H*0.47);
-  // Windshield
-  ctx.fillStyle='rgba(100,190,230,0.55)';
-  ctx.fillRect(cx-W/2+10,by-H+5,W-20,H*0.28);
-  // Rear window
-  ctx.fillStyle='rgba(80,155,200,0.35)';
-  ctx.fillRect(cx-W/2+10,by-H*0.52,W-20,H*0.13);
-  // Chrome side stripe
-  ctx.fillStyle='#b8a070';
-  ctx.fillRect(cx-W/2,by-H*0.52,W,2);
-  // Taillights
-  ctx.fillStyle='#ff1800';
-  ctx.fillRect(cx-W/2+3,by-H+3,9,5);
-  ctx.fillRect(cx+W/2-12,by-H+3,9,5);
-  // Headlights
-  ctx.fillStyle='#fff8a0';
-  ctx.fillRect(cx-W/2+3,by-10,10,6);
-  ctx.fillRect(cx+W/2-13,by-10,10,6);
-  // Wheels (4)
-  ctx.fillStyle='#111';
-  ctx.fillRect(cx-W/2-5,by-H+10,7,20);
-  ctx.fillRect(cx+W/2-2, by-H+10,7,20);
-  ctx.fillRect(cx-W/2-5,by-22,7,20);
-  ctx.fillRect(cx+W/2-2, by-22,7,20);
+  const CAR_W=110, CAR_H=110; // display size on canvas
+  const sprite=CAR_SPRITES.muscle;
+
+  // Ground shadow
+  ctx.fillStyle='rgba(0,0,0,0.28)';
+  ctx.beginPath();ctx.ellipse(cx,by+8,CAR_W*0.42,9,0,0,Math.PI*2);ctx.fill();
+
+  // Smoke from exhausts (drawn behind car)
+  updateSmoke();
+  drawSmoke(ctx);
+  if(Math.random()<0.4) spawnSmoke(cx,by+CAR_H*0.46,CAR_W);
+
+  if(sprite.ready && sprite.img){
+    // The PNG has a black background — use 'lighter' blend so black
+    // becomes transparent against the dark road naturally
+    ctx.globalCompositeOperation='lighter';
+    ctx.drawImage(sprite.img, cx-CAR_W/2, by-CAR_H, CAR_W, CAR_H);
+    ctx.globalCompositeOperation='source-over';
+  } else {
+    // Fallback rectangles if image hasn't loaded
+    ctx.fillStyle='#1a2a3a';
+    ctx.fillRect(cx-CAR_W/2,by-CAR_H,CAR_W,CAR_H);
+    ctx.fillStyle='#f5c842';
+    ctx.fillRect(cx-CAR_W*0.08,by-CAR_H,CAR_W*0.16,CAR_H*0.7);
+    ctx.fillStyle='#ff1800';
+    ctx.fillRect(cx-CAR_W/2+6,by-CAR_H+CAR_H*0.55,CAR_W*0.25,CAR_H*0.08);
+    ctx.fillRect(cx+CAR_W/2-6-CAR_W*0.25,by-CAR_H+CAR_H*0.55,CAR_W*0.25,CAR_H*0.08);
+  }
 }
 
 // ─────────────────────────────────────────────
