@@ -6,352 +6,250 @@
 <title>Century Drive</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-html, body {
-  width:100%; height:100%;
-  background:#000;
-  overflow:hidden;
-  user-select:none;
-  -webkit-user-select:none;
-  touch-action:none;
-}
-canvas {
-  display:block;
-  width:100%;
-  height:100%;
-}
+html, body { width:100%; height:100%; background:#000; overflow:hidden; }
+canvas { display:block; }
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
 <script>
-// ─────────────────────────────────────────────────────
-//  CENTURY DRIVE — stripped to: road + curves + car
-//
-//  OutRun road technique:
-//  - Road is N horizontal line-segments (strips) drawn back→front
-//  - Each strip has a world Z, a curve accumulation, and a hill Y
-//  - We walk from camera forward, projecting each strip to screen
-//  - Curve is accumulated as a screen-X offset that grows toward camera
-// ─────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+//  CENTURY DRIVE — OutRun pseudo-3D road using Phaser
+//  Road technique: segment-based perspective projection
+//  Each segment has curve + hill data. We project front→back,
+//  accumulate curve as screen-X offset, draw trapezoids back→front.
+// ─────────────────────────────────────────────────────────────────
 
-const cv = document.getElementById('c');
-const cx = cv.getContext('2d');
-
-// ── Resize ──────────────────────────────────────────
-function resize() {
-  cv.width  = window.innerWidth;
-  cv.height = window.innerHeight;
-}
-resize();
-window.addEventListener('resize', resize);
-
-// ── Track definition ────────────────────────────────
-// Each segment: { curve, hill }
-// curve: negative = bend left, positive = bend right
-// hill:  negative = dip, positive = rise
-// Values around 0.003–0.008 give gentle-to-strong curves
-
-function makeSeg(curve, hill, n) {
-  const out = [];
-  for (let i = 0; i < n; i++) out.push({ curve, hill });
-  return out;
+function buildTrack() {
+  const segs = [];
+  function add(n, curve, hill) {
+    for (let i = 0; i < n; i++) segs.push({ curve: curve||0, hill: hill||0 });
+  }
+  add(60,  0,       0);
+  add(40, -0.004,   0);
+  add(20,  0,       0);
+  add(50,  0.006,   0);
+  add(20,  0,       0.003);
+  add(40, -0.007,   0);
+  add(20,  0,       0);
+  add(50,  0.005,  -0.002);
+  add(30,  0,       0);
+  add(40, -0.004,   0.002);
+  add(60,  0,       0);
+  return segs;
 }
 
-const TRACK = [
-  ...makeSeg( 0,      0,     40),   // straight
-  ...makeSeg(-0.006,  0,     30),   // left curve
-  ...makeSeg( 0,      0,     20),   // straight
-  ...makeSeg( 0.007,  0,     35),   // right curve
-  ...makeSeg( 0,      0,     20),   // straight
-  ...makeSeg(-0.005,  0.003, 30),   // left + hill
-  ...makeSeg( 0.008,  0,     25),   // hard right
-  ...makeSeg( 0,      0,     30),   // straight
-  ...makeSeg( 0.005, -0.002, 25),   // right + dip
-  ...makeSeg( 0,      0,     40),   // straight
-];
+const TRACK     = buildTrack();
 const TRACK_LEN = TRACK.length;
+const W = window.innerWidth;
+const H = window.innerHeight;
 
-// ── Camera / player ─────────────────────────────────
-let pos    = 0;      // camera position along track (float segment index)
-let spd    = 0;      // current speed (segments/frame)
-const MAX_SPD  = 0.22;
-const ACCEL    = 0.004;
+class RoadScene extends Phaser.Scene {
+  constructor() { super('Road'); }
 
-let playerX  = 0;   // lateral position, -1 = far left, +1 = far right
-let leftDown = false;
-let rightDown= false;
+  preload() {
+    this.load.image('car', './MuscleCar.png');
+  }
 
-// Input
-window.addEventListener('keydown', e => {
-  if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') leftDown  = true;
-  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') rightDown = true;
-  e.preventDefault();
-});
-window.addEventListener('keyup', e => {
-  if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') leftDown  = false;
-  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') rightDown = false;
-});
-let tx0 = 0;
-window.addEventListener('touchstart', e => { tx0 = e.touches[0].clientX; }, { passive:true });
-window.addEventListener('touchmove',  e => {
-  const dx = e.touches[0].clientX - tx0;
-  leftDown  = dx < -20;
-  rightDown = dx >  20;
-}, { passive:true });
-window.addEventListener('touchend', () => { leftDown = false; rightDown = false; }, { passive:true });
+  create() {
+    this.gfx     = this.add.graphics();
+    this.pos     = 0;
+    this.spd     = 0;
+    this.playerX = 0;
+    this.smokeParticles = [];
 
-// ── Car sprite ──────────────────────────────────────
-const carImg = new Image();
-carImg.src = './MuscleCar.png';
+    // Car — large, sits at bottom center
+    this.car = this.add.image(W / 2, H - 70, 'car');
+    this.car.setDisplaySize(200, 200);
+    this.car.setDepth(10);
+    this.car.setOrigin(0.5, 1); // anchor to bottom center
 
-// Exhaust smoke
-let smoke = [];
-function addSmoke(x, y) {
-  for (let i = 0; i < 2; i++) {
-    smoke.push({
-      x: x + (Math.random() - 0.5) * 12,
-      y: y,
-      vx: (Math.random() - 0.5) * 0.4,
-      vy: 0.8 + Math.random() * 0.6,
-      r: 4 + Math.random() * 3,
-      a: 0.5
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.wasd    = this.input.keyboard.addKeys('W,A,S,D');
+    this.touchDX = 0;
+    this.input.on('pointermove', p => { if (p.isDown) this.touchDX = p.velocity.x; });
+    this.input.on('pointerup',   () => { this.touchDX = 0; });
+  }
+
+  update(time, delta) {
+    const dt = Math.min(delta / 16.67, 2);
+
+    // Speed
+    this.spd = Math.min(0.26, this.spd + 0.003 * dt);
+    this.pos += this.spd * dt;
+    if (this.pos >= TRACK_LEN) this.pos -= TRACK_LEN;
+
+    // Curve pull on player
+    const seg = TRACK[Math.floor(this.pos) % TRACK_LEN];
+    this.playerX -= seg.curve * this.spd * 8 * dt;
+
+    // Steering
+    const left  = this.cursors.left.isDown  || this.wasd.A.isDown || this.touchDX < -20;
+    const right = this.cursors.right.isDown || this.wasd.D.isDown || this.touchDX >  20;
+    if (left)  this.playerX -= 0.018 * dt;
+    if (right) this.playerX += 0.018 * dt;
+    this.playerX = Phaser.Math.Clamp(this.playerX, -1.2, 1.2);
+
+    // Shift car sprite for steering feel
+    const targetX = W / 2 - this.playerX * 55;
+    this.car.x += (targetX - this.car.x) * 0.1 * dt;
+
+    this.gfx.clear();
+    this.drawScene();
+  }
+
+  drawScene() {
+    const g       = this.gfx;
+    const HORIZON = Math.floor(H * 0.42);
+    const ROAD_H  = H - HORIZON;
+
+    // ── SKY ──────────────────────────────────────────────────────
+    g.fillStyle(0x1a0a04); g.fillRect(0, 0, W, HORIZON);
+    g.fillStyle(0x2e1006); g.fillRect(0, HORIZON - 10, W, 14);
+
+    // Sun
+    [[0xc84010,52],[0xe87820,36],[0xffc840,18]].forEach(([c,r]) => {
+      g.fillStyle(c);
+      g.slice(W/2, HORIZON, r, Math.PI, 2*Math.PI);
+      g.fillPath();
+    });
+
+    // Buildings
+    g.fillStyle(0x0c0702);
+    [[0.06,0.08,0.10],[0.16,0.05,0.07],[0.22,0.06,0.05],
+     [0.68,0.06,0.06],[0.76,0.08,0.09],[0.86,0.05,0.07]]
+      .forEach(([bx,bw,bh]) => g.fillRect(W*bx, HORIZON-H*bh, W*bw, H*bh));
+
+    // Ground
+    g.fillStyle(0x0c0a04); g.fillRect(0, HORIZON, W, H - HORIZON);
+
+    // ── ROAD ─────────────────────────────────────────────────────
+    //
+    //  Project N segments. n=0 is directly in front of camera (bottom),
+    //  n=DRAW_N is at the horizon (top).
+    //
+    //  scale(n) = 1 / (n+1)  — simple perspective
+    //  screenY  = HORIZON + ROAD_H * scale  — maps 0..1 to horizon..bottom
+    //  halfW    = BASE_W * scale            — road width narrows to horizon
+    //  curveX   accumulates leftward/rightward shift
+
+    const DRAW_N = 200;
+    const BASE_W = W * 0.9;  // road width at camera (screen bottom)
+
+    const proj = [];
+    let curveX  = 0;
+    let cDX     = 0;
+
+    for (let n = 0; n < DRAW_N; n++) {
+      const si   = (Math.floor(this.pos) + n) % TRACK_LEN;
+      const tseg = TRACK[si];
+
+      // frac: 0 at camera (bottom), 1 at horizon (top)
+      const frac  = n / DRAW_N;
+      // scale: 1 at camera, 0 at horizon
+      const scale = 1 - frac;
+
+      const screenY = HORIZON + ROAD_H * scale;
+      const halfW   = BASE_W  * scale * 0.5;
+      const screenX = W / 2 - this.playerX * halfW * 0.6 + curveX;
+
+      proj.push({ screenX, screenY, halfW, si });
+
+      // Curve accumulates. Closer segments (small n, large scale)
+      // contribute more visual shift — multiply by (1-frac) to weight near segs.
+      cDX    += tseg.curve * 0.6;
+      curveX -= cDX * (1 - frac) * 12;
+    }
+
+    // Draw back→front: proj[DRAW_N-1] is horizon, proj[0] is nearest
+    for (let n = proj.length - 1; n > 0; n--) {
+      const far  = proj[n];     // farther strip (smaller on screen)
+      const near = proj[n - 1]; // nearer strip  (larger on screen)
+
+      if (far.screenY  < HORIZON - 2) continue;
+      if (near.screenY > H + 2)       continue;
+
+      const alt    = Math.floor(far.si / 5) % 2;
+      const rumble = Math.floor(far.si / 3) % 2;
+
+      // Grass
+      g.fillStyle(alt ? 0x0f0c04 : 0x131006);
+      g.fillRect(0, far.screenY, W, near.screenY - far.screenY);
+
+      // Road trapezoid
+      g.fillStyle(alt ? 0x2a2826 : 0x232120);
+      g.fillPoints([
+        { x: far.screenX  - far.halfW,  y: far.screenY  },
+        { x: far.screenX  + far.halfW,  y: far.screenY  },
+        { x: near.screenX + near.halfW, y: near.screenY },
+        { x: near.screenX - near.halfW, y: near.screenY },
+      ], true);
+
+      // Rumble strips
+      const rCol = rumble ? 0xc8281e : 0xf0ede8;
+      const rw   = Math.max(2, far.halfW * 0.09);
+      g.fillStyle(rCol);
+      g.fillPoints([
+        { x: far.screenX  - far.halfW  - rw, y: far.screenY  },
+        { x: far.screenX  - far.halfW,       y: far.screenY  },
+        { x: near.screenX - near.halfW,      y: near.screenY },
+        { x: near.screenX - near.halfW - rw, y: near.screenY },
+      ], true);
+      g.fillPoints([
+        { x: far.screenX  + far.halfW,       y: far.screenY  },
+        { x: far.screenX  + far.halfW  + rw, y: far.screenY  },
+        { x: near.screenX + near.halfW + rw, y: near.screenY },
+        { x: near.screenX + near.halfW,      y: near.screenY },
+      ], true);
+
+      // Lane markings
+      if (alt && far.halfW > 4) {
+        const lw = Math.max(1, far.halfW * 0.014);
+        const drawLine = (fx, nx) => {
+          g.fillPoints([
+            { x: fx - lw, y: far.screenY  }, { x: fx + lw, y: far.screenY  },
+            { x: nx + lw, y: near.screenY }, { x: nx - lw, y: near.screenY },
+          ], true);
+        };
+        g.fillStyle(0xd4c060, 0.55);
+        drawLine(far.screenX, near.screenX);
+        g.fillStyle(0xd4c060, 0.28);
+        drawLine(far.screenX - far.halfW*0.35, near.screenX - near.halfW*0.35);
+        drawLine(far.screenX + far.halfW*0.35, near.screenX + near.halfW*0.35);
+      }
+    }
+
+    // ── SMOKE ────────────────────────────────────────────────────
+    const carBot   = this.car.y;
+    const pipeL    = this.car.x - this.car.displayWidth  * 0.26;
+    const pipeR    = this.car.x + this.car.displayWidth  * 0.26;
+
+    if (Math.random() < 0.5) {
+      [pipeL, pipeR].forEach(px => {
+        this.smokeParticles.push({
+          x: px + (Math.random()-0.5)*8, y: carBot + 6,
+          vx: (Math.random()-0.5)*0.5,   vy: 1+Math.random()*0.8,
+          r: 5+Math.random()*3,           a: 0.45
+        });
+      });
+    }
+    this.smokeParticles = this.smokeParticles.filter(s => s.a > 0.02);
+    this.smokeParticles.forEach(s => {
+      s.x += s.vx; s.y += s.vy; s.r += 0.28; s.a -= 0.016;
+      g.fillStyle(0xbbbbbb, s.a * 0.55);
+      g.fillCircle(s.x, s.y, s.r);
     });
   }
 }
-function tickSmoke() {
-  smoke = smoke.filter(s => s.a > 0.02);
-  smoke.forEach(s => {
-    s.x += s.vx;
-    s.y += s.vy;
-    s.r += 0.25;
-    s.a -= 0.018;
-  });
-}
-function drawSmoke() {
-  smoke.forEach(s => {
-    cx.globalAlpha = s.a * 0.6;
-    cx.fillStyle = '#bbb';
-    cx.beginPath();
-    cx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    cx.fill();
-  });
-  cx.globalAlpha = 1;
-}
 
-// ── Main render loop ────────────────────────────────
-function frame() {
-  requestAnimationFrame(frame);
-
-  const W = cv.width;
-  const H = cv.height;
-
-  // Physics
-  spd = Math.min(MAX_SPD, spd + ACCEL);
-  pos += spd;
-  if (pos >= TRACK_LEN) pos -= TRACK_LEN;
-
-  // Road pull — curve drags playerX
-  const curSeg = TRACK[Math.floor(pos) % TRACK_LEN];
-  playerX -= curSeg.curve * spd * 12;
-
-  // Steer
-  if (leftDown)  playerX -= 0.018;
-  if (rightDown) playerX += 0.018;
-  playerX = Math.max(-1, Math.min(1, playerX));
-
-  // ── Sky ──────────────────────────────────────────
-  cx.fillStyle = '#1a0a04';
-  cx.fillRect(0, 0, W, H);
-
-  // horizon glow
-  const HORIZON = Math.floor(H * 0.44);
-  cx.fillStyle = '#2e1006';
-  cx.fillRect(0, HORIZON - 8, W, 12);
-
-  // sun
-  cx.fillStyle = '#c84010';
-  cx.beginPath(); cx.arc(W / 2, HORIZON, 52, Math.PI, 2 * Math.PI); cx.fill();
-  cx.fillStyle = '#e87820';
-  cx.beginPath(); cx.arc(W / 2, HORIZON, 36, Math.PI, 2 * Math.PI); cx.fill();
-  cx.fillStyle = '#ffc840';
-  cx.beginPath(); cx.arc(W / 2, HORIZON, 18, Math.PI, 2 * Math.PI); cx.fill();
-
-  // silhouette buildings
-  cx.fillStyle = '#0c0702';
-  [[0.06,0.08,0.10],[0.16,0.05,0.07],[0.22,0.06,0.05],
-   [0.68,0.06,0.06],[0.76,0.08,0.09],[0.86,0.05,0.07],[0.93,0.05,0.05]]
-    .forEach(([bx,bw,bh]) => cx.fillRect(W*bx, HORIZON-H*bh, W*bw, H*bh));
-
-  // ground
-  cx.fillStyle = '#0c0a04';
-  cx.fillRect(0, HORIZON, W, H - HORIZON);
-
-  // ── ROAD ─────────────────────────────────────────
-  //
-  //  Classic OutRun projection:
-  //  We draw N strips from the farthest visible segment down to the nearest.
-  //  For each strip we project its world Z to a screen Y.
-  //  We accumulate screen-X curve offset as we come toward camera.
-  //
-  //  Key formula:
-  //    scale = camD / segZ          (perspective scale)
-  //    screenY = camY - scale * camH (projected Y)
-  //    roadW   = scale * ROAD_WIDTH  (projected road half-width)
-  //
-  //  Curve offset: as we walk from horizon→camera, each segment's
-  //  curve value shifts the projected X. Near segments shift more
-  //  than far ones because they have a higher perspective scale.
-
-  const DRAW_SEGS  = 220;   // how many segments to draw
-  const CAM_D      = 0.84;  // camera depth (controls FOV)
-  const CAM_HEIGHT = 1500;  // camera height above road (tune for road angle)
-  const ROAD_W     = 3000;  // road half-width in world units
-
-  // Project each visible segment to screen, front to back first
-  // so we can draw back to front
-  const segs = [];
-  let x   = 0;  // accumulated screen-X curve offset
-  let dx  = 0;  // curve per segment (updated each seg)
-
-  for (let n = 0; n < DRAW_SEGS; n++) {
-    const segIdx = (Math.floor(pos) + n) % TRACK_LEN;
-    const seg = TRACK[segIdx];
-
-    // World Z of this segment relative to camera
-    // segment 0 = just in front of camera, segment N = far away
-    const z = (n + 1 - (pos % 1)); // fractional offset for smooth scroll
-
-    const scale    = CAM_D / z;
-    const screenX  = (W / 2) + scale * (playerX * -ROAD_W) + x;
-    const screenY  = (HORIZON) + scale * CAM_HEIGHT * -1 + H * 0.5;
-    const roadHalfW = scale * ROAD_W;
-
-    segs.push({ screenX, screenY, roadHalfW, scale, segIdx, n });
-
-    // Accumulate curve for next segment
-    // The curve contribution is weighted by scale so near segs shift more
-    dx  += seg.curve;
-    x   -= dx * scale * 0.4 * W;
-  }
-
-  // Draw back→front (largest n first = furthest away)
-  // Each strip is drawn between seg[n] (far edge) and seg[n-1] (near edge)
-  for (let n = segs.length - 1; n > 0; n--) {
-    const far  = segs[n];
-    const near = segs[n - 1];
-
-    if (near.screenY >= H) continue;      // below screen
-    if (far.screenY  >= near.screenY) continue; // degenerate
-
-    // Skip if both off top of screen
-    if (near.screenY < HORIZON) break;
-
-    const alt = Math.floor(far.segIdx / 3) % 2; // alternating band
-    const rumble = Math.floor(far.segIdx / 2) % 2;
-
-    // Grass (full width behind road)
-    cx.fillStyle = alt ? '#0f0c04' : '#131006';
-    cx.fillRect(0, near.screenY, W, far.screenY - near.screenY);
-
-    // Road surface
-    cx.fillStyle = alt ? '#2a2826' : '#232120';
-    cx.beginPath();
-    cx.moveTo(far.screenX  - far.roadHalfW,  far.screenY);
-    cx.lineTo(far.screenX  + far.roadHalfW,  far.screenY);
-    cx.lineTo(near.screenX + near.roadHalfW, near.screenY);
-    cx.lineTo(near.screenX - near.roadHalfW, near.screenY);
-    cx.closePath();
-    cx.fill();
-
-    // Rumble strips
-    const rumbleCol = rumble ? '#c8281e' : '#f0ede8';
-    const rw = far.roadHalfW * 0.065;
-    cx.fillStyle = rumbleCol;
-    // left
-    cx.beginPath();
-    cx.moveTo(far.screenX  - far.roadHalfW,       far.screenY);
-    cx.lineTo(far.screenX  - far.roadHalfW - rw,  far.screenY);
-    cx.lineTo(near.screenX - near.roadHalfW - rw, near.screenY);
-    cx.lineTo(near.screenX - near.roadHalfW,      near.screenY);
-    cx.closePath(); cx.fill();
-    // right
-    cx.beginPath();
-    cx.moveTo(far.screenX  + far.roadHalfW,       far.screenY);
-    cx.lineTo(far.screenX  + far.roadHalfW + rw,  far.screenY);
-    cx.lineTo(near.screenX + near.roadHalfW + rw, near.screenY);
-    cx.lineTo(near.screenX + near.roadHalfW,      near.screenY);
-    cx.closePath(); cx.fill();
-
-    // Lane markings — center line and two lane dividers
-    if (alt) {
-      const lw = far.roadHalfW * 0.012;
-      cx.fillStyle = 'rgba(180,180,120,0.5)';
-      // center
-      cx.beginPath();
-      cx.moveTo(far.screenX  - lw, far.screenY);
-      cx.lineTo(far.screenX  + lw, far.screenY);
-      cx.lineTo(near.screenX + lw, near.screenY);
-      cx.lineTo(near.screenX - lw, near.screenY);
-      cx.closePath(); cx.fill();
-      // left third
-      cx.fillStyle = 'rgba(200,200,100,0.35)';
-      const lx1f = far.screenX  - far.roadHalfW  * 0.33;
-      const lx1n = near.screenX - near.roadHalfW * 0.33;
-      cx.beginPath();
-      cx.moveTo(lx1f - lw, far.screenY); cx.lineTo(lx1f + lw, far.screenY);
-      cx.lineTo(lx1n + lw, near.screenY); cx.lineTo(lx1n - lw, near.screenY);
-      cx.closePath(); cx.fill();
-      // right third
-      const lx2f = far.screenX  + far.roadHalfW  * 0.33;
-      const lx2n = near.screenX + near.roadHalfW * 0.33;
-      cx.beginPath();
-      cx.moveTo(lx2f - lw, far.screenY); cx.lineTo(lx2f + lw, far.screenY);
-      cx.lineTo(lx2n + lw, near.screenY); cx.lineTo(lx2n - lw, near.screenY);
-      cx.closePath(); cx.fill();
-    }
-  }
-
-  // ── CAR ──────────────────────────────────────────
-  // Car sits at bottom center. Bottom of image = road surface.
-  const CAR_W  = 120;
-  const CAR_H  = 120;
-  const carX   = W / 2;
-  const carBot = H - 10;   // bottom of car = 10px from screen bottom
-
-  // Shadow
-  cx.fillStyle = 'rgba(0,0,0,0.35)';
-  cx.beginPath();
-  cx.ellipse(carX, carBot - 4, CAR_W * 0.42, 8, 0, 0, Math.PI * 2);
-  cx.fill();
-
-  // Exhaust smoke — emitted from behind the car (bottom of image)
-  tickSmoke();
-  drawSmoke(); // drawn before car so car renders on top
-  if (Math.random() < 0.5) {
-    addSmoke(carX - CAR_W * 0.28, carBot + 2);
-    addSmoke(carX + CAR_W * 0.28, carBot + 2);
-  }
-
-  // Car image
-  if (carImg.complete && carImg.naturalWidth > 0) {
-    cx.drawImage(carImg, carX - CAR_W / 2, carBot - CAR_H, CAR_W, CAR_H);
-  } else {
-    // Fallback rectangle
-    cx.fillStyle = '#1a2a3a';
-    cx.fillRect(carX - 32, carBot - 72, 64, 72);
-    cx.fillStyle = '#f5c842';
-    cx.fillRect(carX - 8, carBot - 72, 16, 50);
-  }
-
-  // Speed readout (minimal, bottom right)
-  cx.fillStyle = 'rgba(255,255,255,0.4)';
-  cx.font = '12px monospace';
-  cx.textAlign = 'right';
-  cx.fillText(Math.round(spd * 800) + ' mph', W - 12, H - 12);
-  cx.textAlign = 'left';
-}
-
-requestAnimationFrame(frame);
+new Phaser.Game({
+  type: Phaser.AUTO,
+  width: W, height: H,
+  backgroundColor: '#000000',
+  scene: RoadScene,
+  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+  render: { antialias: true },
+});
 </script>
 </body>
 </html>
