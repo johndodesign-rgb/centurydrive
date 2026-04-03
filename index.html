@@ -4,764 +4,354 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Century Drive</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow:hidden;background:#0a0908;font-family:'Barlow',sans-serif;color:#f0ede8;user-select:none;-webkit-user-select:none;touch-action:none}
-#app{width:100%;height:100vh;position:relative}
-.screen{display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column}
-.screen.active{display:flex}
-
-/* TITLE */
-#s-title{background:#0a0908}
-.t-era{font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.28em;color:#f5c842;text-transform:uppercase;margin-bottom:10px}
-.t-main{font-family:'Bebas Neue',sans-serif;font-size:clamp(64px,11vw,130px);line-height:.88;text-align:center;color:#f0ede8;letter-spacing:.02em}
-.t-sub{font-family:'Bebas Neue',sans-serif;font-size:clamp(20px,3.5vw,40px);color:#f5c842;letter-spacing:.12em;margin-top:6px}
-.t-rule{width:72px;height:3px;background:#e8362a;margin:24px auto}
-.t-copy{font-size:14px;color:#555;text-align:center;max-width:360px;line-height:1.65;margin-bottom:32px}
-.btn-primary{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.1em;color:#0a0908;background:#f5c842;border:none;padding:13px 52px;cursor:pointer;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);transition:background .15s,transform .1s}
-.btn-primary:hover{background:#ffd84a;transform:scale(1.04)}
-.btn-primary:active{transform:scale(.97)}
-.t-hint{margin-top:22px;font-size:12px;color:#383634;text-align:center;line-height:2}
-.t-stamp{position:absolute;bottom:18px;font-size:10px;letter-spacing:.18em;color:#1e1c1a;text-transform:uppercase}
-
-/* GAME */
-#s-game{padding:0;justify-content:flex-start;background:#0a0908}
-#hud{width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 16px 6px;flex-shrink:0;z-index:10}
-.hud-cell{display:flex;flex-direction:column;gap:1px}
-.hud-lbl{font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:.2em;color:#383634;text-transform:uppercase}
-.hud-val{font-family:'Bebas Neue',sans-serif;font-size:30px;line-height:1;color:#f5c842}
-.hud-val.g{color:#7ec850}
-.cond-wrap{align-items:center;gap:3px}
-.cond-track{width:100px;height:6px;background:#1a1816;border:1px solid #252320}
-.cond-fill{height:100%;transition:width .25s,background .25s}
-#gameCanvas{display:block;width:100%;flex:1;min-height:0}
-
-/* overlays */
-#dmg-flash{position:absolute;inset:0;pointer-events:none;opacity:0;background:rgba(232,54,42,.45);z-index:30}
-#dmg-flash.fx{animation:dmgA .4s ease-out forwards}
-@keyframes dmgA{0%{opacity:1}100%{opacity:0}}
-#cash-pop{position:absolute;font-family:'Bebas Neue',sans-serif;font-size:32px;color:#7ec850;pointer-events:none;opacity:0;z-index:40;left:50%;top:35%;transform:translateX(-50%)}
-#cash-pop.fx{animation:cashA .8s ease-out forwards}
-@keyframes cashA{0%{opacity:1;transform:translateX(-50%) translateY(0)}100%{opacity:0;transform:translateX(-50%) translateY(-52px)}}
-
-/* EVENT */
-#event-modal{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:80;background:rgba(10,9,8,.78)}
-#event-modal.show{display:flex}
-.ev-box{background:#111009;border:1px solid #f5c842;padding:28px 30px;max-width:330px;width:92%;text-align:center}
-.ev-title{font-family:'Bebas Neue',sans-serif;font-size:30px;color:#f5c842;letter-spacing:.06em;margin-bottom:8px}
-.ev-body{font-size:13px;color:#777;line-height:1.6;margin-bottom:20px}
-.ev-btns{display:flex;gap:10px;justify-content:center}
-.ev-btn{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.08em;padding:10px 26px;border:1px solid #2a2826;background:transparent;color:#f0ede8;cursor:pointer;transition:border-color .15s}
-.ev-btn:hover{border-color:#777}
-.ev-btn.go{background:#f5c842;color:#0a0908;border-color:#f5c842;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%)}
-.ev-btn.go:hover{background:#ffd84a}
-
-/* UPGRADE */
-#s-upgrade{background:#0a0908;padding:0 16px;overflow-y:auto}
-.upg-head{text-align:center;padding:28px 0 14px;flex-shrink:0}
-.upg-title{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:.04em}
-.upg-budget{font-family:'Barlow Condensed',sans-serif;font-size:15px;letter-spacing:.1em;color:#7ec850;margin-top:3px}
-.upg-cond{font-size:12px;color:#555;margin-top:2px}
-.upg-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:480px;width:100%;margin:0 auto 14px}
-.upg-card{border:1px solid #1e1c19;background:#111009;padding:14px;cursor:pointer;transition:border-color .15s,background .15s;position:relative}
-.upg-card:hover:not(.off){border-color:#f5c842;background:#191610}
-.upg-card.off{opacity:.4;cursor:default}
-.upg-name{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.05em;color:#f0ede8;text-transform:uppercase;margin-bottom:3px}
-.upg-fx{font-size:12px;color:#555;line-height:1.4;margin-bottom:9px}
-.upg-cost{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#f5c842}
-.upg-pips{display:flex;gap:4px;margin-top:6px}
-.pip{width:16px;height:4px;background:#1e1c19}.pip.on{background:#f5c842}
-.upg-badge{position:absolute;top:8px;right:8px;font-size:10px;letter-spacing:.1em;color:#f5c842;font-family:'Barlow Condensed',sans-serif}
-.upg-acts{display:flex;gap:10px;max-width:480px;width:100%;margin:0 auto;padding-bottom:20px;flex-shrink:0}
-.btn-sec{flex:1;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.08em;color:#f0ede8;background:transparent;border:1px solid #252320;padding:13px;cursor:pointer;transition:border-color .15s}
-.btn-sec:hover{border-color:#555}
-.btn-pri{flex:1;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.08em;color:#0a0908;background:#f5c842;border:none;padding:13px;cursor:pointer;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);transition:background .15s}
-.btn-pri:hover{background:#ffd84a}
-
-/* AUCTION */
-#s-auction{background:#0a0908;padding:0 16px;overflow-y:auto}
-.auc-head{text-align:center;padding:28px 0 16px;flex-shrink:0}
-.auc-eye{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.28em;color:#f5c842;text-transform:uppercase;margin-bottom:6px}
-.auc-title{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:.04em}
-.auc-sub{font-size:13px;color:#555;margin-top:2px}
-.buyers{display:flex;gap:10px;max-width:500px;width:100%;margin:0 auto 16px;flex-wrap:wrap}
-.buyer{flex:1;min-width:130px;border:1px solid #1e1c19;background:#111009;padding:14px 10px;cursor:pointer;text-align:center;transition:border-color .2s,background .2s}
-.buyer:hover,.buyer.sel{border-color:#f5c842;background:#191610}
-.buyer-name{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px}
-.buyer-desc{font-size:11px;color:#555;line-height:1.4;margin-bottom:8px}
-.buyer-offer{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#7ec850}
-.buyer-risk{font-size:10px;color:#383634;margin-top:3px}
-.breakdown{max-width:500px;width:100%;margin:0 auto 16px;border:1px solid #1a1816;background:#111009;padding:14px}
-.brow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #161412;font-size:13px}
-.brow:last-child{border-bottom:none;font-weight:600}
-.blbl{color:#555}.bval{color:#f0ede8;font-family:'Barlow Condensed',sans-serif;font-weight:600}
-.bval.p{color:#7ec850}.bval.n{color:#e8362a}
-.bval.tot{font-family:'Bebas Neue',sans-serif;font-size:26px;color:#f5c842}
-.btn-sell{max-width:500px;width:100%;margin:0 auto;display:block;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.1em;color:#0a0908;background:#f5c842;border:none;padding:15px;cursor:pointer;clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);transition:background .15s;margin-bottom:20px}
-.btn-sell:hover{background:#ffd84a}
-
-/* RESULT */
-#s-result{background:#0a0908;text-align:center;padding:0 20px}
-.res-eye{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.3em;color:#f5c842;text-transform:uppercase;margin-bottom:10px}
-.res-head{font-family:'Bebas Neue',sans-serif;font-size:clamp(48px,9vw,100px);line-height:.92;margin-bottom:6px}
-.res-amt{font-family:'Bebas Neue',sans-serif;font-size:clamp(36px,6vw,72px);color:#f5c842;margin-bottom:24px}
-.res-stats{display:flex;gap:28px;justify-content:center;margin-bottom:36px;flex-wrap:wrap}
-.rs{display:flex;flex-direction:column;gap:3px}
-.rs-lbl{font-size:10px;letter-spacing:.18em;color:#383634;text-transform:uppercase}
-.rs-val{font-family:'Bebas Neue',sans-serif;font-size:30px}
-.res-acts{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-.btn-again{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.08em;color:#0a0908;background:#f5c842;border:none;padding:13px 44px;cursor:pointer;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);transition:background .15s}
-.btn-again:hover{background:#ffd84a}
-.btn-menu-r{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.08em;color:#f0ede8;background:transparent;border:1px solid #252320;padding:13px 28px;cursor:pointer;transition:border-color .15s}
-.btn-menu-r:hover{border-color:#666}
-@media(max-width:500px){.upg-grid{grid-template-columns:1fr}.buyers{flex-direction:column}}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  width:100%; height:100%;
+  background:#000;
+  overflow:hidden;
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action:none;
+}
+canvas {
+  display:block;
+  width:100%;
+  height:100%;
+}
 </style>
 </head>
 <body>
-<div id="app">
-
-<!-- TITLE -->
-<div id="s-title" class="screen active">
-  <div class="t-era">Era 03 · 1968</div>
-  <div class="t-main">CENTURY<br>DRIVE</div>
-  <div class="t-sub">Muscle &amp; Mayhem</div>
-  <div class="t-rule"></div>
-  <div class="t-copy">Buy a Charger. Push it hard. Sell it smart.<br>A 100-year road trip through automotive history.</div>
-  <button class="btn-primary" onclick="startGame()">Fire It Up</button>
-  <div class="t-hint">← → Arrow keys or A / D &nbsp;·&nbsp; Swipe left/right on mobile</div>
-  <div class="t-stamp">A 100-Year Celebration</div>
-</div>
-
-<!-- GAME -->
-<div id="s-game" class="screen">
-  <div id="hud">
-    <div class="hud-cell">
-      <div class="hud-lbl">Cash</div>
-      <div class="hud-val g" id="h-cash">$0</div>
-    </div>
-    <div class="hud-cell cond-wrap" style="align-items:center">
-      <div class="hud-lbl">Condition</div>
-      <div class="cond-track"><div class="cond-fill" id="cond-fill" style="width:100%;background:#4caf50"></div></div>
-      <div style="font-size:10px;color:#383634;margin-top:1px" id="cond-pct">100%</div>
-    </div>
-    <div class="hud-cell" style="align-items:flex-end">
-      <div class="hud-lbl">Speed</div>
-      <div class="hud-val" id="h-spd">0 mph</div>
-    </div>
-  </div>
-  <canvas id="gameCanvas"></canvas>
-  <div id="dmg-flash"></div>
-  <div id="cash-pop"></div>
-  <div id="event-modal">
-    <div class="ev-box">
-      <div class="ev-title" id="ev-title"></div>
-      <div class="ev-body"  id="ev-body"></div>
-      <div class="ev-btns">
-        <button class="ev-btn" id="ev-no"></button>
-        <button class="ev-btn go" id="ev-yes"></button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- UPGRADE -->
-<div id="s-upgrade" class="screen">
-  <div class="upg-head">
-    <div class="upg-title">The Shop</div>
-    <div class="upg-budget" id="upg-budget">$0 to spend</div>
-    <div class="upg-cond"   id="upg-cond">Condition: 100%</div>
-  </div>
-  <div class="upg-grid" id="upg-grid"></div>
-  <div class="upg-acts">
-    <button class="btn-sec" onclick="runAgain()">Run Again</button>
-    <button class="btn-pri" onclick="goAuction()">Take It to Auction</button>
-  </div>
-</div>
-
-<!-- AUCTION -->
-<div id="s-auction" class="screen">
-  <div class="auc-head">
-    <div class="auc-eye">End of Era</div>
-    <div class="auc-title">The Auction</div>
-    <div class="auc-sub">1968 Dodge Charger R/T</div>
-  </div>
-  <div class="buyers"    id="buyers"></div>
-  <div class="breakdown" id="breakdown"><div style="font-size:13px;color:#383634;text-align:center;padding:10px">Select a buyer above</div></div>
-  <button class="btn-sell" onclick="confirmSell()">Hammer Down — Sell It</button>
-</div>
-
-<!-- RESULT -->
-<div id="s-result" class="screen">
-  <div class="res-eye">Sold</div>
-  <div class="res-head" id="res-head">Clean Deal</div>
-  <div class="res-amt"  id="res-amt">$0</div>
-  <div class="res-stats" id="res-stats"></div>
-  <div class="res-acts">
-    <button class="btn-again"  onclick="startGame()">Drive Again</button>
-    <button class="btn-menu-r" onclick="show('s-title')">Main Menu</button>
-  </div>
-</div>
-
-</div><!-- #app -->
+<canvas id="c"></canvas>
 <script>
-// ─────────────────────────────────────────────
-//  UTILS
-// ─────────────────────────────────────────────
-function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
-function flashDmg(){const e=document.getElementById('dmg-flash');e.classList.remove('fx');void e.offsetWidth;e.classList.add('fx');}
-function popCash(t){const e=document.getElementById('cash-pop');e.textContent=t;e.classList.remove('fx');void e.offsetWidth;e.classList.add('fx');}
+// ─────────────────────────────────────────────────────
+//  CENTURY DRIVE — stripped to: road + curves + car
+//
+//  OutRun road technique:
+//  - Road is N horizontal line-segments (strips) drawn back→front
+//  - Each strip has a world Z, a curve accumulation, and a hill Y
+//  - We walk from camera forward, projecting each strip to screen
+//  - Curve is accumulated as a screen-X offset that grows toward camera
+// ─────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────
-//  GAME STATE
-// ─────────────────────────────────────────────
-const G={cash:0,condition:100,runs:0,selectedBuyer:null,finalPrice:0,
-  upgrades:{engine:0,body:0,interior:0,tires:0,provenance:0}};
+const cv = document.getElementById('c');
+const cx = cv.getContext('2d');
 
-function updateHUD(){
-  document.getElementById('h-cash').textContent='$'+G.cash.toLocaleString();
-  document.getElementById('h-spd').textContent=Math.round(speed*26)+' mph';
-  const f=document.getElementById('cond-fill');
-  f.style.width=G.condition+'%';
-  f.style.background=G.condition>60?'#4caf50':G.condition>30?'#ff9800':'#e8362a';
-  document.getElementById('cond-pct').textContent=G.condition+'%';
+// ── Resize ──────────────────────────────────────────
+function resize() {
+  cv.width  = window.innerWidth;
+  cv.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── Track definition ────────────────────────────────
+// Each segment: { curve, hill }
+// curve: negative = bend left, positive = bend right
+// hill:  negative = dip, positive = rise
+// Values around 0.003–0.008 give gentle-to-strong curves
+
+function makeSeg(curve, hill, n) {
+  const out = [];
+  for (let i = 0; i < n; i++) out.push({ curve, hill });
+  return out;
 }
 
-// ─────────────────────────────────────────────
-//  OUTRUN RENDERER
-//  Scanline-based pseudo-3D.
-//  The road is drawn as horizontal strips from
-//  bottom of screen up to the horizon.
-//  Each strip represents one "depth slice" of
-//  the road — wider at the bottom, narrowing to
-//  a vanishing point at the horizon.
-// ─────────────────────────────────────────────
-
-// Track segments — repeated looping
-// curve: lateral bend per segment (-ve=left, +ve=right)
-const TRACK=[
-  ...rep(50,  0,      0),
-  ...rep(30, -0.004,  0),
-  ...rep(20,  0,      0.003),
-  ...rep(40,  0.005,  0),
-  ...rep(20,  0,     -0.003),
-  ...rep(35, -0.006,  0.003),
-  ...rep(30,  0.004,  0),
-  ...rep(25,  0,      0),
-  ...rep(30,  0.007, -0.002),
-  ...rep(40,  0,      0),
+const TRACK = [
+  ...makeSeg( 0,      0,     40),   // straight
+  ...makeSeg(-0.006,  0,     30),   // left curve
+  ...makeSeg( 0,      0,     20),   // straight
+  ...makeSeg( 0.007,  0,     35),   // right curve
+  ...makeSeg( 0,      0,     20),   // straight
+  ...makeSeg(-0.005,  0.003, 30),   // left + hill
+  ...makeSeg( 0.008,  0,     25),   // hard right
+  ...makeSeg( 0,      0,     30),   // straight
+  ...makeSeg( 0.005, -0.002, 25),   // right + dip
+  ...makeSeg( 0,      0,     40),   // straight
 ];
-function rep(n,curve,hill){return Array.from({length:n},()=>({curve,hill}));}
+const TRACK_LEN = TRACK.length;
 
-// Runtime vars
-let canvas,ctx,raf;
-let running=false,eventPending=false,eventsFired=0;
-const EVENT_FRAMES=[420,950];
-let frameN=0;
+// ── Camera / player ─────────────────────────────────
+let pos    = 0;      // camera position along track (float segment index)
+let spd    = 0;      // current speed (segments/frame)
+const MAX_SPD  = 0.22;
+const ACCEL    = 0.004;
 
-// Player
-let playerX=0,speed=0,maxSpd=0;
-// Camera scrolls through track
-let camZ=0; // how far along the track we've scrolled (in pixels)
-
-// Collectibles — stored as world-Z positions + lane offsets
-let coins=[], hazards=[];
-let coinTimer=0, hazTimer=0;
+let playerX  = 0;   // lateral position, -1 = far left, +1 = far right
+let leftDown = false;
+let rightDown= false;
 
 // Input
-let leftDown=false, rightDown=false, touchX0=0;
-
-// ─────────────────────────────────────────────
-//  INIT RUN
-// ─────────────────────────────────────────────
-function initRun(){
-  canvas=document.getElementById('gameCanvas');
-  ctx=canvas.getContext('2d');
-  sizeCv();
-  coins=[];hazards=[];coinTimer=0;hazTimer=0;
-  playerX=0;speed=0;camZ=0;frameN=0;
-  maxSpd=3+G.upgrades.engine*0.5; // world units per frame (tuned)
-  eventsFired=0;eventPending=false;
-  running=true;
-  updateHUD();
-  cancelAnimationFrame(raf);
-  loop();
-}
-
-function sizeCv(){
-  canvas.width=window.innerWidth;
-  canvas.height=window.innerHeight - document.getElementById('hud').offsetHeight;
-}
-window.addEventListener('resize',()=>{if(running&&canvas)sizeCv();});
-
-// Input
-window.addEventListener('keydown',e=>{
-  if(e.key==='ArrowLeft' ||e.key==='a'||e.key==='A'){leftDown=true;e.preventDefault();}
-  if(e.key==='ArrowRight'||e.key==='d'||e.key==='D'){rightDown=true;e.preventDefault();}
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') leftDown  = true;
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') rightDown = true;
+  e.preventDefault();
 });
-window.addEventListener('keyup',e=>{
-  if(e.key==='ArrowLeft' ||e.key==='a'||e.key==='A')leftDown=false;
-  if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')rightDown=false;
+window.addEventListener('keyup', e => {
+  if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') leftDown  = false;
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') rightDown = false;
 });
-document.addEventListener('touchstart',e=>{touchX0=e.touches[0].clientX;},{passive:true});
-document.addEventListener('touchmove',e=>{
-  if(!running||eventPending)return;
-  const dx=e.touches[0].clientX-touchX0;
-  leftDown=dx<-20;rightDown=dx>20;
-},{passive:true});
-document.addEventListener('touchend',()=>{leftDown=false;rightDown=false;},{passive:true});
+let tx0 = 0;
+window.addEventListener('touchstart', e => { tx0 = e.touches[0].clientX; }, { passive:true });
+window.addEventListener('touchmove',  e => {
+  const dx = e.touches[0].clientX - tx0;
+  leftDown  = dx < -20;
+  rightDown = dx >  20;
+}, { passive:true });
+window.addEventListener('touchend', () => { leftDown = false; rightDown = false; }, { passive:true });
 
-// ─────────────────────────────────────────────
-//  MAIN LOOP
-// ─────────────────────────────────────────────
-function loop(){
-  if(!running)return;
-  raf=requestAnimationFrame(loop);
-  frameN++;
+// ── Car sprite ──────────────────────────────────────
+const carImg = new Image();
+carImg.src = './MuscleCar.png';
 
-  const W=canvas.width, H=canvas.height;
-  const SEG_LEN=200; // world units per segment
-
-  // Ramp speed
-  speed=Math.min(maxSpd, speed + (maxSpd*0.006));
-  camZ+=speed;
-
-  // Steer
-  const tireMod=1+G.upgrades.tires*0.12;
-  const steer=0.016*tireMod;
-  // Get current segment's curve for road pull
-  const segIdx=Math.floor(camZ/SEG_LEN)%TRACK.length;
-  const curSeg=TRACK[segIdx];
-  playerX-=curSeg.curve*speed*0.4; // road pulls car
-  if(leftDown) playerX-=steer;
-  if(rightDown)playerX+=steer;
-  playerX=Math.max(-1,Math.min(1,playerX));
-
-  // Spawn coins ahead — place at a fixed world-depth ahead of camera
-  // SPAWN_AHEAD must match the depth range the scanlines actually draw
-  const SPAWN_AHEAD = SEG_LEN * 8; // ~8 segments ahead
-  coinTimer++;
-  if(coinTimer>55){
-    coinTimer=0;
-    const lx=[-0.72, -0.36, 0, 0.36, 0.72][Math.floor(Math.random()*5)];
-    coins.push({z:camZ+SPAWN_AHEAD, lx, done:false, big:Math.random()<0.22});
-  }
-  // Spawn hazards — three distinct types
-  hazTimer++;
-  if(hazTimer>Math.max(60,110-frameN*0.018)){
-    hazTimer=0;
-    const lx=Math.random()<0.5?-0.5:0.5;
-    const types=['pothole','pothole','cone','cone','debris'];
-    const type=types[Math.floor(Math.random()*types.length)];
-    hazards.push({z:camZ+SPAWN_AHEAD*1.1, lx, done:false, type});
-  }
-
-  // Events
-  if(!eventPending&&eventsFired<EVENT_FRAMES.length&&frameN===EVENT_FRAMES[eventsFired]){
-    triggerEvent();return;
-  }
-  if(frameN>1600){endRun();return;}
-
-  // ── DRAW ──────────────────────────────────
-  ctx.clearRect(0,0,W,H);
-
-  const SKY_BOTTOM=Math.floor(H*0.42);
-  ctx.fillStyle='#180d05';ctx.fillRect(0,0,W,SKY_BOTTOM);
-  ctx.fillStyle='#2e1106';ctx.fillRect(0,SKY_BOTTOM-10,W,14);
-
-  const SX=W/2,SY=SKY_BOTTOM;
-  ctx.fillStyle='#c43a06';ctx.beginPath();ctx.arc(SX,SY,50,Math.PI,2*Math.PI);ctx.fill();
-  ctx.fillStyle='#e87020';ctx.beginPath();ctx.arc(SX,SY,36,Math.PI,2*Math.PI);ctx.fill();
-  ctx.fillStyle='#ffc040';ctx.beginPath();ctx.arc(SX,SY,20,Math.PI,2*Math.PI);ctx.fill();
-
-  ctx.fillStyle='#0e0804';
-  const bldgs=[[0.05,0.07,0.10],[0.14,0.04,0.07],[0.20,0.06,0.05],[0.70,0.05,0.06],[0.77,0.07,0.09],[0.86,0.05,0.07],[0.93,0.04,0.05]];
-  for(const[bx,bw,bh]of bldgs)ctx.fillRect(W*bx,SKY_BOTTOM-H*bh,W*bw,H*bh);
-  ctx.fillStyle='#0d0a05';ctx.fillRect(0,SKY_BOTTOM,W,H-SKY_BOTTOM);
-
-  // ── ROAD ──────────────────────────────────
-  const ROAD_H=H-SKY_BOTTOM;
-  const ROAD_W_BASE=W*0.82;
-
-  // Step 1: walk segments ahead, accumulate curve per segment
-  const MAX_DEPTH=150;
-  const segCurveX=new Float32Array(MAX_DEPTH+2);
-  {
-    let acc=0;
-    for(let d=0;d<MAX_DEPTH;d++){
-      const si=(Math.floor(camZ/SEG_LEN)+d)%TRACK.length;
-      acc+=TRACK[si].curve*2.4;
-      segCurveX[d+1]=acc;
-    }
-    segCurveX[MAX_DEPTH+1]=segCurveX[MAX_DEPTH];
-  }
-
-  // Step 2: map each scanline to depth + curve, build lookup arrays
-  const roadCXArr=new Float32Array(H);
-  const worldDistArr=new Float32Array(H);
-  const rumbleArr=new Uint8Array(H);
-  {
-    let rumble=false, lastSeg=-1;
-    for(let y=SKY_BOTTOM;y<H;y++){
-      const t=(y-SKY_BOTTOM)/ROAD_H;
-      if(t<=0.0001){roadCXArr[y]=W/2;continue;}
-      const depth=(1/t-1)*SEG_LEN*1.5;
-      worldDistArr[y]=depth;
-      const depthSegs=depth/SEG_LEN;
-      const si=Math.min(MAX_DEPTH-1,Math.floor(depthSegs));
-      const frac=depthSegs-si;
-      const curve=segCurveX[si]+(segCurveX[si+1]-segCurveX[si])*frac;
-      const lineW=ROAD_W_BASE*t;
-      roadCXArr[y]=W/2-playerX*(lineW*0.35)-curve*t*16;
-      const trackSI=(Math.floor(camZ/SEG_LEN)+si)%TRACK.length;
-      if(trackSI!==lastSeg){lastSeg=trackSI;rumble=!rumble;}
-      rumbleArr[y]=rumble?1:0;
-    }
-  }
-
-  // Step 3: draw scanlines + collect object positions
-  const objScreenPos=[];
-  const BUCKET=18;
-
-  for(let y=H-1;y>=SKY_BOTTOM;y--){
-    const t=(y-SKY_BOTTOM)/ROAD_H;
-    if(t<=0.001)continue;
-    const lineW=ROAD_W_BASE*t;
-    const roadCX=roadCXArr[y];
-    const isRumble=rumbleArr[y]===1;
-    const worldDist=worldDistArr[y];
-    const distBucket=Math.round(worldDist/BUCKET);
-
-    // Grass
-    ctx.fillStyle='#0d0a04';
-    ctx.fillRect(0,y,Math.max(0,roadCX-lineW/2-lineW*0.05),1);
-    ctx.fillRect(roadCX+lineW/2+lineW*0.05,y,W,1);
-    // Rumble
-    ctx.fillStyle=isRumble?'#c8281e':'#f0ede8';
-    ctx.fillRect(roadCX-lineW/2-lineW*0.05,y,lineW*0.05,1);
-    ctx.fillRect(roadCX+lineW/2,y,lineW*0.05,1);
-    // Road
-    ctx.fillStyle=isRumble?'#232120':'#2a2826';
-    ctx.fillRect(roadCX-lineW/2,y,lineW,1);
-    // Dashes
-    if(isRumble){
-      const lw=Math.max(1,lineW*0.008);
-      ctx.fillStyle='rgba(200,200,100,0.5)';
-      ctx.fillRect(roadCX-lineW*0.165,y,lw,1);
-      ctx.fillRect(roadCX+lineW*0.160,y,lw,1);
-      ctx.fillStyle='rgba(180,180,180,0.25)';
-      ctx.fillRect(roadCX-lineW*0.005,y,lineW*0.01,1);
-    }
-
-    // ── Coins ──
-    for(let ci=0;ci<coins.length;ci++){
-      const c=coins[ci];if(c.done)continue;
-      const objDist=c.z-camZ;
-      if(objDist<0){c.done=true;continue;}
-      if(Math.round(objDist/BUCKET)!==distBucket)continue;
-      const cx=roadCX+c.lx*lineW*0.32;
-      const r=Math.max(3,lineW*(c.big?0.046:0.028));
-      const drawY=y-r; // lift above road so full circle is visible
-      if(c.big){
-        ctx.fillStyle='#f5c842';
-        ctx.beginPath();ctx.arc(cx,drawY,r,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#a87000';
-        ctx.beginPath();ctx.arc(cx,drawY,r*0.55,0,Math.PI*2);ctx.fill();
-        if(r>6){ctx.fillStyle='#fff8c0';ctx.font=`bold ${Math.round(r)}px sans-serif`;ctx.textAlign='center';ctx.fillText('$',cx,drawY+r*0.38);ctx.textAlign='left';}
-      } else {
-        ctx.fillStyle='#5ab840';
-        ctx.beginPath();ctx.arc(cx,drawY,r,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#2a7010';
-        ctx.beginPath();ctx.arc(cx,drawY,r*0.55,0,Math.PI*2);ctx.fill();
-        if(r>5){ctx.fillStyle='#c0ffa0';ctx.font=`bold ${Math.round(r*0.9)}px sans-serif`;ctx.textAlign='center';ctx.fillText('$',cx,drawY+r*0.38);ctx.textAlign='left';}
-      }
-      objScreenPos.push({type:'coin',idx:ci,x:cx,y:drawY,r});
-    }
-
-    // ── Hazards ──
-    for(let hi=0;hi<hazards.length;hi++){
-      const h=hazards[hi];if(h.done)continue;
-      const objDist=h.z-camZ;
-      if(objDist<0){h.done=true;continue;}
-      if(Math.round(objDist/BUCKET)!==distBucket)continue;
-      const hx=roadCX+h.lx*lineW*0.32;
-      const sz=Math.max(4,lineW*0.058);
-
-      if(h.type==='pothole'){
-        ctx.fillStyle='#080604';
-        ctx.beginPath();ctx.ellipse(hx,y,sz*1.1,sz*0.45,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#141008';
-        ctx.beginPath();ctx.ellipse(hx,y,sz*0.65,sz*0.25,0,0,Math.PI*2);ctx.fill();
-        ctx.strokeStyle='#2a2418';ctx.lineWidth=Math.max(1,sz*0.1);
-        ctx.beginPath();ctx.ellipse(hx,y,sz*1.1,sz*0.45,0,0,Math.PI*2);ctx.stroke();
-        objScreenPos.push({type:'hazard',idx:hi,x:hx,y,sz:sz*1.1});
-      } else if(h.type==='cone'){
-        const ch=sz*2.4;
-        ctx.fillStyle='#ff5500';
-        ctx.beginPath();ctx.moveTo(hx,y-ch);ctx.lineTo(hx+sz*0.72,y);ctx.lineTo(hx-sz*0.72,y);ctx.closePath();ctx.fill();
-        ctx.fillStyle='#ffffff';
-        ctx.beginPath();ctx.moveTo(hx-sz*0.38,y-ch*0.42);ctx.lineTo(hx+sz*0.38,y-ch*0.42);ctx.lineTo(hx+sz*0.5,y-ch*0.58);ctx.lineTo(hx-sz*0.5,y-ch*0.58);ctx.closePath();ctx.fill();
-        ctx.fillStyle='#cc3300';
-        ctx.fillRect(hx-sz*0.82,y-sz*0.16,sz*1.64,sz*0.16);
-        objScreenPos.push({type:'hazard',idx:hi,x:hx,y:y-ch*0.5,sz:sz*0.82});
-      } else {
-        // Debris — scattered rocks
-        ctx.fillStyle='#504840';
-        for(let d=0;d<6;d++){
-          const dx=hx+(d-2.5)*sz*0.28+(d%2?sz*0.08:0);
-          const dy=y-(d%3)*sz*0.18;
-          const rs=sz*(0.15+d*0.03);
-          ctx.beginPath();ctx.arc(dx,dy,rs,0,Math.PI*2);ctx.fill();
-        }
-        ctx.fillStyle='#706860';
-        ctx.beginPath();ctx.arc(hx,y-sz*0.1,sz*0.2,0,Math.PI*2);ctx.fill();
-        objScreenPos.push({type:'hazard',idx:hi,x:hx,y:y-sz*0.2,sz:sz*1.0});
-      }
-    }
-  }
-
-  // ── COLLISION ──────────────────────────────
-  const carX=W/2;
-  const carY=H-22; // car sits right on road surface
-  const carHW=26,carHH=40;
-
-  for(const o of objScreenPos){
-    if(o.type==='coin'&&!coins[o.idx].done){
-      if(Math.abs(o.x-carX)<carHW+o.r&&Math.abs(o.y-carY)<carHH+o.r){
-        coins[o.idx].done=true;
-        const amt=coins[o.idx].big?380:140;
-        G.cash+=amt;popCash('+$'+amt);updateHUD();
-      }
-    }
-    if(o.type==='hazard'&&!hazards[o.idx].done){
-      const dodge=G.upgrades.tires*5;
-      if(Math.abs(o.x-carX)<carHW+o.sz*0.5-dodge&&Math.abs(o.y-carY)<carHH+o.sz*0.6){
-        hazards[o.idx].done=true;
-        const dmg=Math.max(4,15-G.upgrades.tires*3);
-        G.condition=Math.max(0,G.condition-dmg);
-        flashDmg();updateHUD();
-        if(G.condition<=0){endRun();return;}
-      }
-    }
-  }
-
-  coins  =coins.filter(c=>c.z>camZ-SEG_LEN);
-  hazards=hazards.filter(h=>h.z>camZ-SEG_LEN);
-
-  // ── PLAYER CAR ─────────────────────────────
-  drawCar(ctx,carX,carY);
-}
-
-// ── Car sprite loader ──
-// Each era will have its own image. For now: Muscle & Mayhem.
-const CAR_SPRITES = {
-  muscle: { src:'./MuscleCar.png', img:null, ready:false }
-};
-(function preloadSprites(){
-  for(const key in CAR_SPRITES){
-    const s=CAR_SPRITES[key];
-    const i=new Image();
-    i.onload=()=>{ s.img=i; s.ready=true; };
-    i.onerror=()=>{ s.ready=false; }; // graceful fallback to rectangles
-    i.src=s.src;
-  }
-})();
-
-// Exhaust smoke particles
-let smokeParticles=[];
-function spawnSmoke(cx,by,carW){
-  // Two exhaust pipes — match image geometry
-  const pipes=[cx-carW*0.3, cx+carW*0.3];
-  for(const px of pipes){
-    smokeParticles.push({
-      x: px + (Math.random()-0.5)*4,
-      y: by + 4,
-      vx: (Math.random()-0.5)*0.6,
-      vy: Math.random()*1.2+0.4,
-      alpha: 0.55,
-      r: Math.random()*4+3
+// Exhaust smoke
+let smoke = [];
+function addSmoke(x, y) {
+  for (let i = 0; i < 2; i++) {
+    smoke.push({
+      x: x + (Math.random() - 0.5) * 12,
+      y: y,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: 0.8 + Math.random() * 0.6,
+      r: 4 + Math.random() * 3,
+      a: 0.5
     });
   }
 }
-function updateSmoke(){
-  smokeParticles=smokeParticles.filter(p=>p.alpha>0.02);
-  smokeParticles.forEach(p=>{
-    p.x+=p.vx; p.y+=p.vy;
-    p.r+=0.3;
-    p.alpha-=0.022;
+function tickSmoke() {
+  smoke = smoke.filter(s => s.a > 0.02);
+  smoke.forEach(s => {
+    s.x += s.vx;
+    s.y += s.vy;
+    s.r += 0.25;
+    s.a -= 0.018;
   });
 }
-function drawSmoke(ctx){
-  smokeParticles.forEach(p=>{
-    ctx.globalAlpha=p.alpha*0.7;
-    ctx.fillStyle='#ccc';
-    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+function drawSmoke() {
+  smoke.forEach(s => {
+    cx.globalAlpha = s.a * 0.6;
+    cx.fillStyle = '#bbb';
+    cx.beginPath();
+    cx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    cx.fill();
   });
-  ctx.globalAlpha=1;
+  cx.globalAlpha = 1;
 }
 
-function drawCar(ctx,cx,by){
-  const CAR_W=110, CAR_H=110;
-  const sprite=CAR_SPRITES.muscle;
+// ── Main render loop ────────────────────────────────
+function frame() {
+  requestAnimationFrame(frame);
 
-  // Shadow on road
-  ctx.fillStyle='rgba(0,0,0,0.32)';
-  ctx.beginPath();ctx.ellipse(cx,by-4,CAR_W*0.44,8,0,0,Math.PI*2);ctx.fill();
+  const W = cv.width;
+  const H = cv.height;
 
-  updateSmoke();
-  drawSmoke(ctx);
-  if(Math.random()<0.4) spawnSmoke(cx,by-CAR_H+CAR_H*0.08,CAR_W);
+  // Physics
+  spd = Math.min(MAX_SPD, spd + ACCEL);
+  pos += spd;
+  if (pos >= TRACK_LEN) pos -= TRACK_LEN;
 
-  if(sprite.ready && sprite.img){
-    // bottom of image = by (road surface)
-    ctx.drawImage(sprite.img, cx-CAR_W/2, by-CAR_H, CAR_W, CAR_H);
-  } else {
-    ctx.fillStyle='#1a2a3a';
-    ctx.fillRect(cx-CAR_W/2,by-CAR_H,CAR_W,CAR_H);
-    ctx.fillStyle='#f5c842';
-    ctx.fillRect(cx-CAR_W*0.08,by-CAR_H,CAR_W*0.16,CAR_H*0.7);
-    ctx.fillStyle='#ff1800';
-    ctx.fillRect(cx-CAR_W/2+6,by-CAR_H*0.45,CAR_W*0.25,CAR_H*0.08);
-    ctx.fillRect(cx+CAR_W/2-6-CAR_W*0.25,by-CAR_H*0.45,CAR_W*0.25,CAR_H*0.08);
+  // Road pull — curve drags playerX
+  const curSeg = TRACK[Math.floor(pos) % TRACK_LEN];
+  playerX -= curSeg.curve * spd * 12;
+
+  // Steer
+  if (leftDown)  playerX -= 0.018;
+  if (rightDown) playerX += 0.018;
+  playerX = Math.max(-1, Math.min(1, playerX));
+
+  // ── Sky ──────────────────────────────────────────
+  cx.fillStyle = '#1a0a04';
+  cx.fillRect(0, 0, W, H);
+
+  // horizon glow
+  const HORIZON = Math.floor(H * 0.44);
+  cx.fillStyle = '#2e1006';
+  cx.fillRect(0, HORIZON - 8, W, 12);
+
+  // sun
+  cx.fillStyle = '#c84010';
+  cx.beginPath(); cx.arc(W / 2, HORIZON, 52, Math.PI, 2 * Math.PI); cx.fill();
+  cx.fillStyle = '#e87820';
+  cx.beginPath(); cx.arc(W / 2, HORIZON, 36, Math.PI, 2 * Math.PI); cx.fill();
+  cx.fillStyle = '#ffc840';
+  cx.beginPath(); cx.arc(W / 2, HORIZON, 18, Math.PI, 2 * Math.PI); cx.fill();
+
+  // silhouette buildings
+  cx.fillStyle = '#0c0702';
+  [[0.06,0.08,0.10],[0.16,0.05,0.07],[0.22,0.06,0.05],
+   [0.68,0.06,0.06],[0.76,0.08,0.09],[0.86,0.05,0.07],[0.93,0.05,0.05]]
+    .forEach(([bx,bw,bh]) => cx.fillRect(W*bx, HORIZON-H*bh, W*bw, H*bh));
+
+  // ground
+  cx.fillStyle = '#0c0a04';
+  cx.fillRect(0, HORIZON, W, H - HORIZON);
+
+  // ── ROAD ─────────────────────────────────────────
+  //
+  //  Classic OutRun projection:
+  //  We draw N strips from the farthest visible segment down to the nearest.
+  //  For each strip we project its world Z to a screen Y.
+  //  We accumulate screen-X curve offset as we come toward camera.
+  //
+  //  Key formula:
+  //    scale = camD / segZ          (perspective scale)
+  //    screenY = camY - scale * camH (projected Y)
+  //    roadW   = scale * ROAD_WIDTH  (projected road half-width)
+  //
+  //  Curve offset: as we walk from horizon→camera, each segment's
+  //  curve value shifts the projected X. Near segments shift more
+  //  than far ones because they have a higher perspective scale.
+
+  const DRAW_SEGS  = 220;   // how many segments to draw
+  const CAM_D      = 0.84;  // camera depth (controls FOV)
+  const CAM_HEIGHT = 1500;  // camera height above road (tune for road angle)
+  const ROAD_W     = 3000;  // road half-width in world units
+
+  // Project each visible segment to screen, front to back first
+  // so we can draw back to front
+  const segs = [];
+  let x   = 0;  // accumulated screen-X curve offset
+  let dx  = 0;  // curve per segment (updated each seg)
+
+  for (let n = 0; n < DRAW_SEGS; n++) {
+    const segIdx = (Math.floor(pos) + n) % TRACK_LEN;
+    const seg = TRACK[segIdx];
+
+    // World Z of this segment relative to camera
+    // segment 0 = just in front of camera, segment N = far away
+    const z = (n + 1 - (pos % 1)); // fractional offset for smooth scroll
+
+    const scale    = CAM_D / z;
+    const screenX  = (W / 2) + scale * (playerX * -ROAD_W) + x;
+    const screenY  = (HORIZON) + scale * CAM_HEIGHT * -1 + H * 0.5;
+    const roadHalfW = scale * ROAD_W;
+
+    segs.push({ screenX, screenY, roadHalfW, scale, segIdx, n });
+
+    // Accumulate curve for next segment
+    // The curve contribution is weighted by scale so near segs shift more
+    dx  += seg.curve;
+    x   -= dx * scale * 0.4 * W;
   }
+
+  // Draw back→front (largest n first = furthest away)
+  // Each strip is drawn between seg[n] (far edge) and seg[n-1] (near edge)
+  for (let n = segs.length - 1; n > 0; n--) {
+    const far  = segs[n];
+    const near = segs[n - 1];
+
+    if (near.screenY >= H) continue;      // below screen
+    if (far.screenY  >= near.screenY) continue; // degenerate
+
+    // Skip if both off top of screen
+    if (near.screenY < HORIZON) break;
+
+    const alt = Math.floor(far.segIdx / 3) % 2; // alternating band
+    const rumble = Math.floor(far.segIdx / 2) % 2;
+
+    // Grass (full width behind road)
+    cx.fillStyle = alt ? '#0f0c04' : '#131006';
+    cx.fillRect(0, near.screenY, W, far.screenY - near.screenY);
+
+    // Road surface
+    cx.fillStyle = alt ? '#2a2826' : '#232120';
+    cx.beginPath();
+    cx.moveTo(far.screenX  - far.roadHalfW,  far.screenY);
+    cx.lineTo(far.screenX  + far.roadHalfW,  far.screenY);
+    cx.lineTo(near.screenX + near.roadHalfW, near.screenY);
+    cx.lineTo(near.screenX - near.roadHalfW, near.screenY);
+    cx.closePath();
+    cx.fill();
+
+    // Rumble strips
+    const rumbleCol = rumble ? '#c8281e' : '#f0ede8';
+    const rw = far.roadHalfW * 0.065;
+    cx.fillStyle = rumbleCol;
+    // left
+    cx.beginPath();
+    cx.moveTo(far.screenX  - far.roadHalfW,       far.screenY);
+    cx.lineTo(far.screenX  - far.roadHalfW - rw,  far.screenY);
+    cx.lineTo(near.screenX - near.roadHalfW - rw, near.screenY);
+    cx.lineTo(near.screenX - near.roadHalfW,      near.screenY);
+    cx.closePath(); cx.fill();
+    // right
+    cx.beginPath();
+    cx.moveTo(far.screenX  + far.roadHalfW,       far.screenY);
+    cx.lineTo(far.screenX  + far.roadHalfW + rw,  far.screenY);
+    cx.lineTo(near.screenX + near.roadHalfW + rw, near.screenY);
+    cx.lineTo(near.screenX + near.roadHalfW,      near.screenY);
+    cx.closePath(); cx.fill();
+
+    // Lane markings — center line and two lane dividers
+    if (alt) {
+      const lw = far.roadHalfW * 0.012;
+      cx.fillStyle = 'rgba(180,180,120,0.5)';
+      // center
+      cx.beginPath();
+      cx.moveTo(far.screenX  - lw, far.screenY);
+      cx.lineTo(far.screenX  + lw, far.screenY);
+      cx.lineTo(near.screenX + lw, near.screenY);
+      cx.lineTo(near.screenX - lw, near.screenY);
+      cx.closePath(); cx.fill();
+      // left third
+      cx.fillStyle = 'rgba(200,200,100,0.35)';
+      const lx1f = far.screenX  - far.roadHalfW  * 0.33;
+      const lx1n = near.screenX - near.roadHalfW * 0.33;
+      cx.beginPath();
+      cx.moveTo(lx1f - lw, far.screenY); cx.lineTo(lx1f + lw, far.screenY);
+      cx.lineTo(lx1n + lw, near.screenY); cx.lineTo(lx1n - lw, near.screenY);
+      cx.closePath(); cx.fill();
+      // right third
+      const lx2f = far.screenX  + far.roadHalfW  * 0.33;
+      const lx2n = near.screenX + near.roadHalfW * 0.33;
+      cx.beginPath();
+      cx.moveTo(lx2f - lw, far.screenY); cx.lineTo(lx2f + lw, far.screenY);
+      cx.lineTo(lx2n + lw, near.screenY); cx.lineTo(lx2n - lw, near.screenY);
+      cx.closePath(); cx.fill();
+    }
+  }
+
+  // ── CAR ──────────────────────────────────────────
+  // Car sits at bottom center. Bottom of image = road surface.
+  const CAR_W  = 120;
+  const CAR_H  = 120;
+  const carX   = W / 2;
+  const carBot = H - 10;   // bottom of car = 10px from screen bottom
+
+  // Shadow
+  cx.fillStyle = 'rgba(0,0,0,0.35)';
+  cx.beginPath();
+  cx.ellipse(carX, carBot - 4, CAR_W * 0.42, 8, 0, 0, Math.PI * 2);
+  cx.fill();
+
+  // Exhaust smoke — emitted from behind the car (bottom of image)
+  tickSmoke();
+  drawSmoke(); // drawn before car so car renders on top
+  if (Math.random() < 0.5) {
+    addSmoke(carX - CAR_W * 0.28, carBot + 2);
+    addSmoke(carX + CAR_W * 0.28, carBot + 2);
+  }
+
+  // Car image
+  if (carImg.complete && carImg.naturalWidth > 0) {
+    cx.drawImage(carImg, carX - CAR_W / 2, carBot - CAR_H, CAR_W, CAR_H);
+  } else {
+    // Fallback rectangle
+    cx.fillStyle = '#1a2a3a';
+    cx.fillRect(carX - 32, carBot - 72, 64, 72);
+    cx.fillStyle = '#f5c842';
+    cx.fillRect(carX - 8, carBot - 72, 16, 50);
+  }
+
+  // Speed readout (minimal, bottom right)
+  cx.fillStyle = 'rgba(255,255,255,0.4)';
+  cx.font = '12px monospace';
+  cx.textAlign = 'right';
+  cx.fillText(Math.round(spd * 800) + ' mph', W - 12, H - 12);
+  cx.textAlign = 'left';
 }
 
-// ─────────────────────────────────────────────
-//  EVENTS (two per run)
-// ─────────────────────────────────────────────
-const EVENTS=[
-  {title:'Pink Slip Race',  body:"A blacked-out Trans Am pulls alongside and revs. Double your cash — or lose half. You in?",
-   yes:'Race Him',no:'Back Off',
-   onYes(){Math.random()<0.55?(G.cash*=2,popCash('WINNER!')):(G.cash=Math.round(G.cash/2),flashDmg());}},
-  {title:'Roadside Score',  body:"Guy waves you down. $650 cash right now — no auction, no questions.",
-   yes:'Take It',no:'Keep Rolling',
-   onYes(){G.cash+=650;popCash('+$650');}},
-  {title:'Speed Trap',      body:"Trooper clocked you. Pay the $250 fine, or floor it and hope for the best.",
-   yes:'Floor It',no:'Pay $250',
-   onYes(){Math.random()<0.5?popCash('Clean escape!'):(G.condition=Math.max(0,G.condition-12),flashDmg());},
-   onNo(){G.cash=Math.max(0,G.cash-250);}},
-  {title:'Barn Find Deal',  body:"Farmer's got a dusty Chevelle on a trailer. $800 asking. Could flip for profit — or it's junk.",
-   yes:'Buy It ($800)',no:'Drive On',
-   onYes(){G.cash=Math.max(0,G.cash-800);const w=Math.random()<0.6;G.cash+=w?1600:0;popCash(w?'Profit!':'Junk...');}},
-];
-let usedEvents=new Set();
-function triggerEvent(){
-  running=false;cancelAnimationFrame(raf);
-  eventPending=true;eventsFired++;
-  // Pick an event we haven't used yet this run
-  let available=EVENTS.filter((_,i)=>!usedEvents.has(i));
-  if(!available.length){available=EVENTS;usedEvents.clear();}
-  const ei=EVENTS.indexOf(available[Math.floor(Math.random()*available.length)]);
-  usedEvents.add(ei);
-  const ev=EVENTS[ei];
-  document.getElementById('ev-title').textContent=ev.title;
-  document.getElementById('ev-body').textContent=ev.body;
-  document.getElementById('ev-yes').textContent=ev.yes;
-  document.getElementById('ev-no').textContent=ev.no;
-  document.getElementById('event-modal').classList.add('show');
-  document.getElementById('ev-yes').onclick=()=>{if(ev.onYes)ev.onYes();closeEvent();};
-  document.getElementById('ev-no').onclick=()=>{if(ev.onNo)ev.onNo();closeEvent();};
-}
-function closeEvent(){
-  document.getElementById('event-modal').classList.remove('show');
-  eventPending=false;updateHUD();
-  if(G.condition>0){running=true;loop();}else endRun();
-}
-
-// ─────────────────────────────────────────────
-//  FLOW CONTROL
-// ─────────────────────────────────────────────
-function startGame(){
-  G.cash=0;G.condition=100;G.runs=0;G.selectedBuyer=null;
-  G.upgrades={engine:0,body:0,interior:0,tires:0,provenance:0};
-  usedEvents=new Set();
-  show('s-game');initRun();
-}
-function runAgain(){
-  G.condition=Math.min(100,G.condition+5);
-  usedEvents=new Set();
-  show('s-game');initRun();
-}
-function endRun(){
-  running=false;cancelAnimationFrame(raf);G.runs++;showUpgrade();
-}
-
-// ─────────────────────────────────────────────
-//  UPGRADE
-// ─────────────────────────────────────────────
-const UPGRADES_DEF=[
-  {key:'engine',    name:'Engine Rebuild',   fx:'Raises top speed & hazard recovery',       costs:[400,600,800],max:3},
-  {key:'body',      name:'Body & Paint',     fx:'Raises auction floor. Hides road damage.',  costs:[300,500,700],max:3},
-  {key:'interior',  name:'Interior Detail',  fx:'Hidden auction multiplier. Buyers notice.', costs:[250,400,600],max:3},
-  {key:'tires',     name:'Performance Tires',fx:'Wider dodge window. Less body damage.',     costs:[350,550],    max:2},
-  {key:'provenance',name:'Provenance Card',  fx:'+15% auction bonus. Documented history.',   costs:[800],        max:1},
-];
-function showUpgrade(){
-  document.getElementById('upg-budget').textContent='$'+G.cash.toLocaleString()+' to spend';
-  document.getElementById('upg-cond').textContent='Condition: '+G.condition+'%';
-  renderUpgrades();show('s-upgrade');
-}
-function renderUpgrades(){
-  const grid=document.getElementById('upg-grid');grid.innerHTML='';
-  UPGRADES_DEF.forEach(u=>{
-    const lv=G.upgrades[u.key],maxed=lv>=u.max;
-    const cost=maxed?0:u.costs[lv],broke=!maxed&&cost>G.cash;
-    const card=document.createElement('div');
-    card.className='upg-card'+(maxed||broke?' off':'');
-    let pips='';for(let i=0;i<u.max;i++)pips+=`<div class="pip${i<lv?' on':''}"></div>`;
-    card.innerHTML=`${maxed?'<span class="upg-badge">MAXED</span>':''}<div class="upg-name">${u.name}</div><div class="upg-fx">${u.fx}</div>${!maxed?`<div class="upg-cost">$${cost.toLocaleString()}</div>`:''}<div class="upg-pips">${pips}</div>`;
-    if(!maxed&&!broke)card.addEventListener('click',()=>{G.cash-=cost;G.upgrades[u.key]++;document.getElementById('upg-budget').textContent='$'+G.cash.toLocaleString()+' to spend';renderUpgrades();});
-    grid.appendChild(card);
-  });
-}
-
-// ─────────────────────────────────────────────
-//  AUCTION
-// ─────────────────────────────────────────────
-const BUYERS_DEF=[
-  {id:'collector',name:'Private Collector',desc:'Pays premium for clean, documented cars. Very condition-sensitive.',risk:'Low risk · condition matters',mult:1.28,condSens:true},
-  {id:'dealer',   name:'The Dealership',   desc:"Fair market. Reliable. Doesn't care about your feelings.",       risk:'Steady · always buying',       mult:1.0, condSens:false},
-  {id:'auction',  name:'Open Auction',     desc:'Market decides. Could go big — or bust.',                        risk:'Wild card · roll the dice',     mult:null,condSens:false},
-];
-function baseVal(){
-  let b=4400;b+=G.upgrades.engine*650;b+=G.upgrades.body*850;b+=G.upgrades.interior*520;b+=G.upgrades.tires*320;
-  b*=(0.38+0.62*(G.condition/100)+G.upgrades.body*0.05);return Math.round(b);
-}
-function salePrice(bid){
-  const base=baseVal(),b=BUYERS_DEF.find(x=>x.id===bid);let p=base;
-  if(b.mult!==null){p*=b.condSens?b.mult+(G.condition/100)*0.12-0.12:b.mult;}
-  else{p*=0.7+Math.random()*0.8;}
-  if(G.upgrades.provenance)p*=1.15;return Math.round(p);
-}
-function goAuction(){G.selectedBuyer=null;renderBuyers();renderBreakdown();show('s-auction');}
-function renderBuyers(){
-  const row=document.getElementById('buyers');row.innerHTML='';
-  BUYERS_DEF.forEach(b=>{
-    const offer=b.mult!==null?'$'+salePrice(b.id).toLocaleString():'Market';
-    const card=document.createElement('div');
-    card.className='buyer'+(G.selectedBuyer===b.id?' sel':'');
-    card.innerHTML=`<div class="buyer-name">${b.name}</div><div class="buyer-desc">${b.desc}</div><div class="buyer-offer">${offer}</div><div class="buyer-risk">${b.risk}</div>`;
-    card.addEventListener('click',()=>{G.selectedBuyer=b.id;renderBuyers();renderBreakdown();});
-    row.appendChild(card);
-  });
-}
-function renderBreakdown(){
-  const bd=document.getElementById('breakdown');
-  if(!G.selectedBuyer){bd.innerHTML='<div style="font-size:13px;color:#383634;text-align:center;padding:10px">Select a buyer above</div>';return;}
-  const base=baseVal(),final=salePrice(G.selectedBuyer),buyMod=final-base;
-  const provB=G.upgrades.provenance?Math.round(base*0.15):0;
-  const condPen=Math.round(base*(1-G.condition/100)*0.45);
-  bd.innerHTML=`<div class="brow"><span class="blbl">Base value</span><span class="bval">$${base.toLocaleString()}</span></div><div class="brow"><span class="blbl">Condition (${G.condition}%)</span><span class="bval n">-$${condPen.toLocaleString()}</span></div>${provB?`<div class="brow"><span class="blbl">Provenance bonus</span><span class="bval p">+$${provB.toLocaleString()}</span></div>`:''}<div class="brow"><span class="blbl">Buyer premium/discount</span><span class="bval ${buyMod>=0?'p':'n'}">${buyMod>=0?'+':''} $${Math.abs(buyMod).toLocaleString()}</span></div><div class="brow"><span class="blbl">Final sale price</span><span class="bval tot">$${final.toLocaleString()}</span></div>`;
-  G.finalPrice=final;
-}
-function confirmSell(){
-  if(!G.selectedBuyer)return;
-  const p=G.finalPrice,buyer=BUYERS_DEF.find(b=>b.id===G.selectedBuyer);
-  document.getElementById('res-head').textContent=p>=6500?'Clean Deal':'Took What You Could Get';
-  document.getElementById('res-amt').textContent='$'+p.toLocaleString();
-  document.getElementById('res-stats').innerHTML=`<div class="rs"><div class="rs-lbl">Condition</div><div class="rs-val">${G.condition}%</div></div><div class="rs"><div class="rs-lbl">Upgrades</div><div class="rs-val">${Object.values(G.upgrades).reduce((a,b)=>a+b,0)}</div></div><div class="rs"><div class="rs-lbl">Buyer</div><div class="rs-val">${buyer.name.split(' ')[0]}</div></div><div class="rs"><div class="rs-lbl">Runs</div><div class="rs-val">${G.runs}</div></div>`;
-  show('s-result');
-}
+requestAnimationFrame(frame);
 </script>
 </body>
 </html>
