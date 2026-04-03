@@ -346,12 +346,14 @@ function loop(){
     const lx=[-0.72, -0.36, 0, 0.36, 0.72][Math.floor(Math.random()*5)];
     coins.push({z:camZ+SPAWN_AHEAD, lx, done:false, big:Math.random()<0.22});
   }
-  // Spawn hazards
+  // Spawn hazards — three distinct types
   hazTimer++;
   if(hazTimer>Math.max(60,110-frameN*0.018)){
     hazTimer=0;
     const lx=Math.random()<0.5?-0.5:0.5;
-    hazards.push({z:camZ+SPAWN_AHEAD*1.1, lx, done:false});
+    const types=['pothole','pothole','cone','cone','debris'];
+    const type=types[Math.floor(Math.random()*types.length)];
+    hazards.push({z:camZ+SPAWN_AHEAD*1.1, lx, done:false, type});
   }
 
   // Events
@@ -363,185 +365,165 @@ function loop(){
   // ── DRAW ──────────────────────────────────
   ctx.clearRect(0,0,W,H);
 
-  // Sky (top 42% of canvas)
   const SKY_BOTTOM=Math.floor(H*0.42);
   ctx.fillStyle='#180d05';ctx.fillRect(0,0,W,SKY_BOTTOM);
-
-  // Horizon glow strip
   ctx.fillStyle='#2e1106';ctx.fillRect(0,SKY_BOTTOM-10,W,14);
 
-  // Sun — half-circle sitting on the horizon
-  const SX=W/2, SY=SKY_BOTTOM;
+  const SX=W/2,SY=SKY_BOTTOM;
   ctx.fillStyle='#c43a06';ctx.beginPath();ctx.arc(SX,SY,50,Math.PI,2*Math.PI);ctx.fill();
   ctx.fillStyle='#e87020';ctx.beginPath();ctx.arc(SX,SY,36,Math.PI,2*Math.PI);ctx.fill();
   ctx.fillStyle='#ffc040';ctx.beginPath();ctx.arc(SX,SY,20,Math.PI,2*Math.PI);ctx.fill();
 
-  // Silhouette skyline
   ctx.fillStyle='#0e0804';
   const bldgs=[[0.05,0.07,0.10],[0.14,0.04,0.07],[0.20,0.06,0.05],[0.70,0.05,0.06],[0.77,0.07,0.09],[0.86,0.05,0.07],[0.93,0.04,0.05]];
-  for(const[bx,bw,bh]of bldgs){ctx.fillRect(W*bx,SKY_BOTTOM-H*bh,W*bw,H*bh);}
-
-  // Ground (fills below sky)
+  for(const[bx,bw,bh]of bldgs)ctx.fillRect(W*bx,SKY_BOTTOM-H*bh,W*bw,H*bh);
   ctx.fillStyle='#0d0a05';ctx.fillRect(0,SKY_BOTTOM,W,H-SKY_BOTTOM);
 
-  // ── ROAD (scanline renderer) ──────────────
-  // Road goes from SKY_BOTTOM (horizon/top) down to H (bottom of screen)
-  // At the bottom: road fills ~85% of canvas width
-  // At the horizon: road converges to a point
+  // ── ROAD ──────────────────────────────────
+  const ROAD_H=H-SKY_BOTTOM;
+  const ROAD_W_BASE=W*0.82;
 
-  const ROAD_H = H - SKY_BOTTOM;
-  const ROAD_W_BASE = W * 0.82;
-  const DEPTH_SCALE = SEG_LEN * 12;
-
-  // ── Pre-compute curve x-offsets per scanline ──────────────────
-  // Walk forward from camera through segments, accumulating lateral
-  // curve offset. Store result per screen-Y so the draw loop is clean.
-  // This is the correct OutRun method: one forward pass, then draw.
-  const NUM_LINES = H - SKY_BOTTOM;
-  const roadCXArr = new Float32Array(H); // roadCX for each y
-  const rumbleArr = new Uint8Array(H);   // rumble flag per y
-  const worldDistArr = new Float32Array(H); // worldDist per y
-
+  // Step 1: walk segments ahead, accumulate curve per segment
+  const MAX_DEPTH=150;
+  const segCurveX=new Float32Array(MAX_DEPTH+2);
   {
-    let cx = 0;          // accumulated lateral curve offset (world units)
-    let lastSI = -1;
-    let rumble = false;
-
-    // We need to map each scanline y→segment, compute curve.
-    // Walk from y=SKY_BOTTOM (far) to y=H-1 (near) — i.e. far to near —
-    // accumulating curve as we go so near scanlines carry all the bends behind them.
-    // Then flip: near scanlines get the most accumulated curve, far ones get less.
-    // Simplest correct approach: build array top→bottom (far→near), accumulate.
-
-    let prevSI = -1;
-    let curveSumArr = new Float32Array(H);
-    let cSum = 0;
-
-    for(let y = SKY_BOTTOM; y < H; y++){
-      const t = (y - SKY_BOTTOM) / ROAD_H;
-      if(t <= 0){ curveSumArr[y]=0; continue; }
-      const worldDist = DEPTH_SCALE * (1/t - 1);
-      const worldZ = camZ + worldDist;
-      const si = ((Math.floor(worldZ / SEG_LEN)) % TRACK.length + TRACK.length) % TRACK.length;
-      worldDistArr[y] = worldDist;
-
-      if(si !== prevSI){
-        // New segment — accumulate its curve (weighted by how "far" we are)
-        // The further away, the less it contributes to near-camera bending
-        cSum += TRACK[si].curve * 120;
-        prevSI = si;
-        rumble = !rumble;
-      }
-      curveSumArr[y] = cSum;
-      rumbleArr[y] = rumble ? 1 : 0;
+    let acc=0;
+    for(let d=0;d<MAX_DEPTH;d++){
+      const si=(Math.floor(camZ/SEG_LEN)+d)%TRACK.length;
+      acc+=TRACK[si].curve*2.4;
+      segCurveX[d+1]=acc;
     }
+    segCurveX[MAX_DEPTH+1]=segCurveX[MAX_DEPTH];
+  }
 
-    // Now build roadCX: near scanlines (large t, large y) should have
-    // curve offset = total accumulated curve minus what's in front of them.
-    // The curve offset at screen position y = (totalCurve - curveSumArr[y]) * t
-    // multiplied by lineW scaling so it appears in screen space.
-    const totalCurve = curveSumArr[H-1];
-
-    for(let y = SKY_BOTTOM; y < H; y++){
-      const t = (y - SKY_BOTTOM) / ROAD_H;
-      if(t <= 0){ roadCXArr[y] = W*0.5; continue; }
-      const lineW = ROAD_W_BASE * t;
-      // Curve ahead of camera pushes road left/right on screen
-      // Near lines (t≈1) feel the full offset; far lines (t≈0) barely move
-      const curveOffset = (totalCurve - curveSumArr[y]) * t * 0.012;
-      roadCXArr[y] = W*0.5 - playerX*(lineW*0.35) + curveOffset;
+  // Step 2: map each scanline to depth + curve, build lookup arrays
+  const roadCXArr=new Float32Array(H);
+  const worldDistArr=new Float32Array(H);
+  const rumbleArr=new Uint8Array(H);
+  {
+    let rumble=false, lastSeg=-1;
+    for(let y=SKY_BOTTOM;y<H;y++){
+      const t=(y-SKY_BOTTOM)/ROAD_H;
+      if(t<=0.0001){roadCXArr[y]=W/2;continue;}
+      const depth=(1/t-1)*SEG_LEN*1.5;
+      worldDistArr[y]=depth;
+      const depthSegs=depth/SEG_LEN;
+      const si=Math.min(MAX_DEPTH-1,Math.floor(depthSegs));
+      const frac=depthSegs-si;
+      const curve=segCurveX[si]+(segCurveX[si+1]-segCurveX[si])*frac;
+      const lineW=ROAD_W_BASE*t;
+      roadCXArr[y]=W/2-playerX*(lineW*0.35)-curve*t*16;
+      const trackSI=(Math.floor(camZ/SEG_LEN)+si)%TRACK.length;
+      if(trackSI!==lastSeg){lastSeg=trackSI;rumble=!rumble;}
+      rumbleArr[y]=rumble?1:0;
     }
   }
 
-  // We'll record where coins/hazards appear on screen for collision
+  // Step 3: draw scanlines + collect object positions
   const objScreenPos=[];
+  const BUCKET=18;
 
   for(let y=H-1;y>=SKY_BOTTOM;y--){
     const t=(y-SKY_BOTTOM)/ROAD_H;
     if(t<=0.001)continue;
-
     const lineW=ROAD_W_BASE*t;
-    const roadCX = roadCXArr[y];
-    const isRumble = rumbleArr[y]===1;
-    const worldDist = worldDistArr[y];
-
-    // Colors
-    const grassCol='#0d0a04';
-    const rumbleCol=isRumble?'#c8281e':'#f0ede8';
-    const roadCol  =isRumble?'#232120':'#2a2826';
+    const roadCX=roadCXArr[y];
+    const isRumble=rumbleArr[y]===1;
+    const worldDist=worldDistArr[y];
+    const distBucket=Math.round(worldDist/BUCKET);
 
     // Grass
-    ctx.fillStyle=grassCol;
-    ctx.fillRect(0,y,roadCX-lineW/2-lineW*0.05,1);
+    ctx.fillStyle='#0d0a04';
+    ctx.fillRect(0,y,Math.max(0,roadCX-lineW/2-lineW*0.05),1);
     ctx.fillRect(roadCX+lineW/2+lineW*0.05,y,W,1);
-
-    // Rumble strips
-    ctx.fillStyle=rumbleCol;
+    // Rumble
+    ctx.fillStyle=isRumble?'#c8281e':'#f0ede8';
     ctx.fillRect(roadCX-lineW/2-lineW*0.05,y,lineW*0.05,1);
-    ctx.fillRect(roadCX+lineW/2,           y,lineW*0.05,1);
-
-    // Road surface
-    ctx.fillStyle=roadCol;
+    ctx.fillRect(roadCX+lineW/2,y,lineW*0.05,1);
+    // Road
+    ctx.fillStyle=isRumble?'#232120':'#2a2826';
     ctx.fillRect(roadCX-lineW/2,y,lineW,1);
-
-    // Lane dashes
+    // Dashes
     if(isRumble){
-      ctx.fillStyle='rgba(200,200,100,0.5)';
       const lw=Math.max(1,lineW*0.008);
+      ctx.fillStyle='rgba(200,200,100,0.5)';
       ctx.fillRect(roadCX-lineW*0.165,y,lw,1);
       ctx.fillRect(roadCX+lineW*0.160,y,lw,1);
       ctx.fillStyle='rgba(180,180,180,0.25)';
       ctx.fillRect(roadCX-lineW*0.005,y,lineW*0.01,1);
     }
 
-    // ── Coins & hazards ──
-    const BUCKET=20;
-    const distBucket=Math.round(worldDist/BUCKET);
-
+    // ── Coins ──
     for(let ci=0;ci<coins.length;ci++){
       const c=coins[ci];if(c.done)continue;
       const objDist=c.z-camZ;
       if(objDist<0){c.done=true;continue;}
-      if(Math.round(objDist/BUCKET)===distBucket){
-        const cx=roadCX+c.lx*lineW*0.34;
-        const r=Math.max(3,lineW*(c.big?0.042:0.026));
-        ctx.fillStyle=c.big?'#f5c842':'#7ec850';
-        ctx.beginPath();ctx.arc(cx,y,r,0,Math.PI*2);ctx.fill();
-        if(r>7){
-          ctx.fillStyle='rgba(0,0,0,0.4)';
-          ctx.font=`bold ${Math.round(r*1.1)}px sans-serif`;
-          ctx.textAlign='center';
-          ctx.fillText('$',cx,y+r*0.38);
-          ctx.textAlign='left';
-        }
-        objScreenPos.push({type:'coin',idx:ci,x:cx,y,r});
+      if(Math.round(objDist/BUCKET)!==distBucket)continue;
+      const cx=roadCX+c.lx*lineW*0.32;
+      const r=Math.max(3,lineW*(c.big?0.046:0.028));
+      const drawY=y-r; // lift above road so full circle is visible
+      if(c.big){
+        ctx.fillStyle='#f5c842';
+        ctx.beginPath();ctx.arc(cx,drawY,r,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#a87000';
+        ctx.beginPath();ctx.arc(cx,drawY,r*0.55,0,Math.PI*2);ctx.fill();
+        if(r>6){ctx.fillStyle='#fff8c0';ctx.font=`bold ${Math.round(r)}px sans-serif`;ctx.textAlign='center';ctx.fillText('$',cx,drawY+r*0.38);ctx.textAlign='left';}
+      } else {
+        ctx.fillStyle='#5ab840';
+        ctx.beginPath();ctx.arc(cx,drawY,r,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#2a7010';
+        ctx.beginPath();ctx.arc(cx,drawY,r*0.55,0,Math.PI*2);ctx.fill();
+        if(r>5){ctx.fillStyle='#c0ffa0';ctx.font=`bold ${Math.round(r*0.9)}px sans-serif`;ctx.textAlign='center';ctx.fillText('$',cx,drawY+r*0.38);ctx.textAlign='left';}
       }
+      objScreenPos.push({type:'coin',idx:ci,x:cx,y:drawY,r});
     }
 
+    // ── Hazards ──
     for(let hi=0;hi<hazards.length;hi++){
       const h=hazards[hi];if(h.done)continue;
       const objDist=h.z-camZ;
       if(objDist<0){h.done=true;continue;}
-      if(Math.round(objDist/BUCKET)===distBucket){
-        const hx=roadCX+h.lx*lineW*0.34;
-        const sz=Math.max(5,lineW*0.055);
-        ctx.fillStyle='#3a6898';
-        ctx.fillRect(hx-sz*0.5,y-sz*1.7,sz,sz*1.7);
-        ctx.fillStyle='#1e4a70';
-        ctx.fillRect(hx-sz*0.36,y-sz*2.3,sz*0.72,sz*0.68);
-        ctx.fillStyle='rgba(160,210,255,0.55)';
-        ctx.fillRect(hx-sz*0.28,y-sz*2.24,sz*0.56,sz*0.52);
-        ctx.fillStyle='#ff2200';
-        ctx.fillRect(hx-sz*0.5,y-sz*1.7,sz*0.16,sz*0.1);
-        ctx.fillRect(hx+sz*0.34,y-sz*1.7,sz*0.16,sz*0.1);
-        objScreenPos.push({type:'hazard',idx:hi,x:hx,y,sz});
+      if(Math.round(objDist/BUCKET)!==distBucket)continue;
+      const hx=roadCX+h.lx*lineW*0.32;
+      const sz=Math.max(4,lineW*0.058);
+
+      if(h.type==='pothole'){
+        ctx.fillStyle='#080604';
+        ctx.beginPath();ctx.ellipse(hx,y,sz*1.1,sz*0.45,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#141008';
+        ctx.beginPath();ctx.ellipse(hx,y,sz*0.65,sz*0.25,0,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle='#2a2418';ctx.lineWidth=Math.max(1,sz*0.1);
+        ctx.beginPath();ctx.ellipse(hx,y,sz*1.1,sz*0.45,0,0,Math.PI*2);ctx.stroke();
+        objScreenPos.push({type:'hazard',idx:hi,x:hx,y,sz:sz*1.1});
+      } else if(h.type==='cone'){
+        const ch=sz*2.4;
+        ctx.fillStyle='#ff5500';
+        ctx.beginPath();ctx.moveTo(hx,y-ch);ctx.lineTo(hx+sz*0.72,y);ctx.lineTo(hx-sz*0.72,y);ctx.closePath();ctx.fill();
+        ctx.fillStyle='#ffffff';
+        ctx.beginPath();ctx.moveTo(hx-sz*0.38,y-ch*0.42);ctx.lineTo(hx+sz*0.38,y-ch*0.42);ctx.lineTo(hx+sz*0.5,y-ch*0.58);ctx.lineTo(hx-sz*0.5,y-ch*0.58);ctx.closePath();ctx.fill();
+        ctx.fillStyle='#cc3300';
+        ctx.fillRect(hx-sz*0.82,y-sz*0.16,sz*1.64,sz*0.16);
+        objScreenPos.push({type:'hazard',idx:hi,x:hx,y:y-ch*0.5,sz:sz*0.82});
+      } else {
+        // Debris — scattered rocks
+        ctx.fillStyle='#504840';
+        for(let d=0;d<6;d++){
+          const dx=hx+(d-2.5)*sz*0.28+(d%2?sz*0.08:0);
+          const dy=y-(d%3)*sz*0.18;
+          const rs=sz*(0.15+d*0.03);
+          ctx.beginPath();ctx.arc(dx,dy,rs,0,Math.PI*2);ctx.fill();
+        }
+        ctx.fillStyle='#706860';
+        ctx.beginPath();ctx.arc(hx,y-sz*0.1,sz*0.2,0,Math.PI*2);ctx.fill();
+        objScreenPos.push({type:'hazard',idx:hi,x:hx,y:y-sz*0.2,sz:sz*1.0});
       }
     }
   }
 
   // ── COLLISION ──────────────────────────────
-  const carX=W/2, carY=H-85;
-  const carHW=24,carHH=32;
+  const carX=W/2;
+  const carY=H-22; // car sits right on road surface
+  const carHW=26,carHH=40;
 
   for(const o of objScreenPos){
     if(o.type==='coin'&&!coins[o.idx].done){
@@ -552,8 +534,8 @@ function loop(){
       }
     }
     if(o.type==='hazard'&&!hazards[o.idx].done){
-      const dodge=G.upgrades.tires*6;
-      if(Math.abs(o.x-carX)<carHW+o.sz*0.45-dodge&&Math.abs(o.y-carY)<carHH+o.sz*0.5){
+      const dodge=G.upgrades.tires*5;
+      if(Math.abs(o.x-carX)<carHW+o.sz*0.5-dodge&&Math.abs(o.y-carY)<carHH+o.sz*0.6){
         hazards[o.idx].done=true;
         const dmg=Math.max(4,15-G.upgrades.tires*3);
         G.condition=Math.max(0,G.condition-dmg);
@@ -563,7 +545,6 @@ function loop(){
     }
   }
 
-  // Cull far-behind objects
   coins  =coins.filter(c=>c.z>camZ-SEG_LEN);
   hazards=hazards.filter(h=>h.z>camZ-SEG_LEN);
 
@@ -620,29 +601,28 @@ function drawSmoke(ctx){
 }
 
 function drawCar(ctx,cx,by){
-  const CAR_W=110, CAR_H=110; // display size on canvas
+  const CAR_W=110, CAR_H=110;
   const sprite=CAR_SPRITES.muscle;
 
-  // Ground shadow
-  ctx.fillStyle='rgba(0,0,0,0.28)';
-  ctx.beginPath();ctx.ellipse(cx,by+8,CAR_W*0.42,9,0,0,Math.PI*2);ctx.fill();
+  // Shadow on road
+  ctx.fillStyle='rgba(0,0,0,0.32)';
+  ctx.beginPath();ctx.ellipse(cx,by-4,CAR_W*0.44,8,0,0,Math.PI*2);ctx.fill();
 
-  // Smoke from exhausts (drawn behind car)
   updateSmoke();
   drawSmoke(ctx);
-  if(Math.random()<0.4) spawnSmoke(cx,by+CAR_H*0.46,CAR_W);
+  if(Math.random()<0.4) spawnSmoke(cx,by-CAR_H+CAR_H*0.08,CAR_W);
 
   if(sprite.ready && sprite.img){
+    // bottom of image = by (road surface)
     ctx.drawImage(sprite.img, cx-CAR_W/2, by-CAR_H, CAR_W, CAR_H);
   } else {
-    // Fallback rectangles if image hasn't loaded
     ctx.fillStyle='#1a2a3a';
     ctx.fillRect(cx-CAR_W/2,by-CAR_H,CAR_W,CAR_H);
     ctx.fillStyle='#f5c842';
     ctx.fillRect(cx-CAR_W*0.08,by-CAR_H,CAR_W*0.16,CAR_H*0.7);
     ctx.fillStyle='#ff1800';
-    ctx.fillRect(cx-CAR_W/2+6,by-CAR_H+CAR_H*0.55,CAR_W*0.25,CAR_H*0.08);
-    ctx.fillRect(cx+CAR_W/2-6-CAR_W*0.25,by-CAR_H+CAR_H*0.55,CAR_W*0.25,CAR_H*0.08);
+    ctx.fillRect(cx-CAR_W/2+6,by-CAR_H*0.45,CAR_W*0.25,CAR_H*0.08);
+    ctx.fillRect(cx+CAR_W/2-6-CAR_W*0.25,by-CAR_H*0.45,CAR_W*0.25,CAR_H*0.08);
   }
 }
 
